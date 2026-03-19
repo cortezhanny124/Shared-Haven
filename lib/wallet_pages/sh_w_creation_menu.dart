@@ -44,7 +44,7 @@ class ShWCreationMenuState extends State<ShWCreationMenu> {
             AppLocalizations.of(context)!.translate('create_import_message'),
             textAlign: TextAlign.center,
             style: TextStyle(
-              fontSize: 16,
+              fontSize: MediaQuery.textScalerOf(context).scale(16),
               color: AppColors.text(context),
               fontWeight: FontWeight.w500,
             ),
@@ -94,6 +94,31 @@ class ShWCreationMenuState extends State<ShWCreationMenu> {
               icon: Icons.download,
               iconColor: AppColors.gradient(context),
               label: AppLocalizations.of(context)!.translate('import_wallet'),
+              padding: 16.0,
+              iconSize: 28.0,
+            ),
+          ),
+          const SizedBox(height: 16),
+          GestureDetector(
+            onLongPress: () {
+              final BaseScaffoldState? baseScaffoldState =
+                  baseScaffoldKey.currentState;
+
+              if (baseScaffoldState != null) {
+                baseScaffoldState.updateAssistantMessage(
+                    context, 'assistant_import_shared_ro');
+              }
+            },
+            child: CustomButton(
+              onPressed: () {
+                Navigator.pushNamed(context, '/import_shared_ro');
+              },
+              backgroundColor: AppColors.background(context),
+              foregroundColor: AppColors.text(context),
+              icon: Icons.download,
+              iconColor: AppColors.gradient(context),
+              label:
+                  AppLocalizations.of(context)!.translate('import_wallet_ro'),
               padding: 16.0,
               iconSize: 28.0,
             ),

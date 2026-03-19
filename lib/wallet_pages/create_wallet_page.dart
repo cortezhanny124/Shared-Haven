@@ -1,7 +1,7 @@
 import 'dart:async';
 import 'dart:math';
 
-import 'package:bdk_flutter/bdk_flutter.dart';
+import 'package:bdk_dart/bdk.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -263,6 +263,8 @@ class CreateWalletPageState extends State<CreateWalletPage> {
     CustomBottomSheet.buildCustomStatefulBottomSheet(
       context: context,
       titleKey: 'verify_mnemonic',
+      isDismissible: false,
+      enableDrag: false,
       contentBuilder: (setDialogState, updateAssistantMessage) {
         bool allAnswered() => selections.every((e) => e != null);
         bool allCorrect() {
@@ -314,7 +316,7 @@ class CreateWalletPageState extends State<CreateWalletPage> {
                     .translate('one_or_more_answers_are_wrong'),
                 style: TextStyle(
                   color: Colors.redAccent.opaque(0.9),
-                  fontSize: 12,
+                  fontSize: MediaQuery.textScalerOf(context).scale(12),
                 ),
               ),
               const SizedBox(height: 6),
@@ -326,7 +328,7 @@ class CreateWalletPageState extends State<CreateWalletPage> {
                 Expanded(
                   child: OutlinedButton(
                     onPressed: () {
-                      Navigator.of(context).pop(); // cancel
+                      Navigator.of(rootContext, rootNavigator: true).pop();
                     },
                     child: Text(
                       AppLocalizations.of(rootContext)!.translate('cancel'),
@@ -396,11 +398,11 @@ class CreateWalletPageState extends State<CreateWalletPage> {
   }
 
   Future<void> _generateMnemonic() async {
-    final res = await Mnemonic.create(WordCount.words12);
+    final res = Mnemonic(WordCount.words12);
 
     setState(() {
-      _mnemonicController.text = res.asString();
-      _mnemonic = res.asString();
+      _mnemonicController.text = res.toString();
+      _mnemonic = res.toString();
       _status = 'New mnemonic generated!';
     });
   }
@@ -470,7 +472,7 @@ class CreateWalletPageState extends State<CreateWalletPage> {
         Text(
           statusText,
           style: TextStyle(
-            fontSize: 16,
+            fontSize: MediaQuery.textScalerOf(context).scale(16),
             fontWeight: FontWeight.bold,
             color: AppColors.text(context),
           ),
@@ -631,7 +633,7 @@ class CreateWalletPageState extends State<CreateWalletPage> {
                 ),
                 style: TextStyle(
                   color: AppColors.text(context),
-                  fontSize: 14,
+                  fontSize: MediaQuery.textScalerOf(context).scale(14),
                 ),
                 onChanged: (v) => _onWordChanged(i, v),
                 onSubmitted: (_) => _focusNext(i),

@@ -208,7 +208,7 @@ const Map<String, String> localizedStringsEs = {
   'immediately_spend': 'Tú ({x}) puedes gastar inmediatamente',
   'cannot_spend': 'Tú ({x}) no puedes gastar sats en este momento',
   'threshold_required':
-      '\n\nSe requiere un umbral de {x} de {y}. \nDebes coordinarte con estas claves',
+      '\nSe requiere un umbral de {x} de {y}. \nDebes coordinarte con estas claves',
   'spend_alone':
       '\nPuedes gastar solo. \nEstas otras claves también pueden gastar independientemente: ',
   'spend_together': '\nDebes gastar junto con: ',

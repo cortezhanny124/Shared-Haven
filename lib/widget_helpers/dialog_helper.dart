@@ -51,7 +51,8 @@ class DialogHelper {
                           localizedTitle,
                           textAlign: TextAlign.center,
                           style: TextStyle(
-                            fontSize: 20,
+                            fontSize:
+                                MediaQuery.textScalerOf(context).scale(20),
                             fontWeight: FontWeight.bold,
                             color: AppColors.cardTitle(context),
                           ),
@@ -190,7 +191,8 @@ class DialogHelper {
                           AppLocalizations.of(rootContext)!.translate(titleKey),
                           textAlign: TextAlign.center,
                           style: TextStyle(
-                            fontSize: 20,
+                            fontSize:
+                                MediaQuery.textScalerOf(context).scale(20),
                             fontWeight: FontWeight.bold,
                             color: AppColors.cardTitle(context),
                           ),

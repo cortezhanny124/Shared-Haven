@@ -110,15 +110,17 @@ This disclaimer was amended for the last time on October 1st, 2025
                     // Title row
                     Row(
                       mainAxisAlignment: MainAxisAlignment.center,
-                      children: const [
-                        Icon(Icons.currency_bitcoin, color: Color(0xFFF7931A)),
-                        SizedBox(width: 8),
+                      children: [
+                        const Icon(Icons.currency_bitcoin,
+                            color: Color(0xFFF7931A)),
+                        const SizedBox(width: 8),
                         Text(
                           'Legal Disclaimer',
                           style: TextStyle(
                             color: Colors.white,
                             fontWeight: FontWeight.w800,
-                            fontSize: 18,
+                            fontSize:
+                                MediaQuery.textScalerOf(context).scale(18),
                           ),
                         ),
                       ],
@@ -144,7 +146,8 @@ This disclaimer was amended for the last time on October 1st, 2025
                             _legalText,
                             style: TextStyle(
                               color: AppColors.gradient(context),
-                              fontSize: 16,
+                              fontSize:
+                                  MediaQuery.textScalerOf(context).scale(16),
                               height: 1.5,
                             ),
                           ),
@@ -291,7 +294,8 @@ This disclaimer was amended for the last time on October 1st, 2025
                         Text(
                           'Shared Haven',
                           style: TextStyle(
-                            fontSize: 28,
+                            fontSize:
+                                MediaQuery.textScalerOf(context).scale(28),
                             fontWeight: FontWeight.w700,
                             color: _btcOrange,
                           ),
@@ -300,7 +304,8 @@ This disclaimer was amended for the last time on October 1st, 2025
                         Text(
                           'Bitcoin Wallet\nwith secure \nmultisig features',
                           style: TextStyle(
-                            fontSize: 40,
+                            fontSize:
+                                MediaQuery.textScalerOf(context).scale(40),
                             height: 1.05,
                             fontWeight: FontWeight.w800,
                             color: textOnGradient,
@@ -338,7 +343,9 @@ This disclaimer was amended for the last time on October 1st, 2025
                                     text: TextSpan(
                                       style: TextStyle(
                                         color: textOnGradient,
-                                        fontSize: 15,
+                                        fontSize: 15 *
+                                            MediaQuery.of(context)
+                                                .textScaleFactor,
                                         height: 1.35,
                                       ),
                                       children: [
@@ -389,10 +396,12 @@ This disclaimer was amended for the last time on October 1st, 2025
                                 borderRadius: BorderRadius.circular(16),
                               ),
                             ),
-                            child: const Text(
+                            child: Text(
                               'Continue',
                               style: TextStyle(
-                                  fontSize: 18, fontWeight: FontWeight.w800),
+                                  fontSize: MediaQuery.textScalerOf(context)
+                                      .scale(18),
+                                  fontWeight: FontWeight.w800),
                             ),
                           ),
                         ),

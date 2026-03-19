@@ -1,6 +1,6 @@
 import 'dart:convert';
 import 'dart:io';
-import 'package:bdk_flutter/bdk_flutter.dart';
+import 'package:bdk_dart/bdk.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_file_dialog/flutter_file_dialog.dart';
@@ -32,6 +32,7 @@ class CreateSharedWallet extends StatefulWidget {
 
 class CreateSharedWalletState extends State<CreateSharedWallet> {
   late final WalletService _walletService;
+  late SettingsProvider settingsProvider;
 
   List<TextEditingController> additionalPublicKeyControllers = [
     TextEditingController()
@@ -74,6 +75,7 @@ class CreateSharedWalletState extends State<CreateSharedWallet> {
 
     _walletService =
         WalletService(Provider.of<SettingsProvider>(context, listen: false));
+    settingsProvider = Provider.of<SettingsProvider>(context, listen: false);
 
     _getCurrHeight();
 
@@ -91,7 +93,7 @@ class CreateSharedWalletState extends State<CreateSharedWallet> {
     final wallServ = WalletService(settingsProvider);
     final url = '${await wallServ.baseUrl}blocks/tip/height';
 
-    print(url);
+    // print(url);
 
     final resp = await http.get(Uri.parse(url));
     setState(() {
@@ -118,15 +120,21 @@ class CreateSharedWalletState extends State<CreateSharedWallet> {
     try {
       final walletBox = Hive.box('walletBox');
       final savedMnemonic = walletBox.get('walletMnemonic');
-      final mnemonic = await Mnemonic.fromString(savedMnemonic);
+      final mnemonic = Mnemonic.fromString(savedMnemonic);
 
       // print('Mnemonic: $savedMnemonic');
 
-      final hardenedDerivationPath =
-          await DerivationPath.create(path: "m/84h/1h/0h");
-      final receivingDerivationPath = await DerivationPath.create(path: "m/0");
+      DerivationPath hardenedDerivationPath;
 
-      final (_, receivingPublicKey) = await _walletService.deriveDescriptorKeys(
+      if (settingsProvider.network == Network.bitcoin) {
+        hardenedDerivationPath = DerivationPath("m/84h/0h/0h");
+      } else {
+        hardenedDerivationPath = DerivationPath("m/84h/1h/0h");
+      }
+
+      final receivingDerivationPath = DerivationPath("m/0");
+
+      final (_, receivingPublicKey) = _walletService.deriveDescriptorKeys(
         hardenedDerivationPath,
         receivingDerivationPath,
         mnemonic,
@@ -237,7 +245,7 @@ class CreateSharedWalletState extends State<CreateSharedWallet> {
         AppLocalizations.of(context)!.translate('create_shared_wallet'),
         style: GoogleFonts.poppins(
           fontWeight: FontWeight.w600,
-          fontSize: 18,
+          fontSize: MediaQuery.textScalerOf(context).scale(18),
         ),
       ),
       key: baseScaffoldKey,
@@ -251,7 +259,7 @@ class CreateSharedWalletState extends State<CreateSharedWallet> {
               AppLocalizations.of(context)!.translate('descriptor_name'),
               style: GoogleFonts.poppins(
                 fontWeight: FontWeight.w600,
-                fontSize: 16,
+                fontSize: MediaQuery.textScalerOf(context).scale(16),
                 color: _isDescriptorNameMissing
                     ? AppColors.error(context)
                     : AppColors.text(context),
@@ -274,7 +282,7 @@ class CreateSharedWalletState extends State<CreateSharedWallet> {
                 ]),
                 style: GoogleFonts.poppins(
                   fontWeight: FontWeight.w400,
-                  fontSize: 14,
+                  fontSize: MediaQuery.textScalerOf(context).scale(14),
                   color: AppColors.error(context),
                 ),
               ),
@@ -308,7 +316,7 @@ class CreateSharedWalletState extends State<CreateSharedWallet> {
               '1. ${AppLocalizations.of(context)!.translate('generate_public_key')}',
               style: GoogleFonts.poppins(
                   fontWeight: FontWeight.w600,
-                  fontSize: 16,
+                  fontSize: MediaQuery.textScalerOf(context).scale(16),
                   color: AppColors.text(context)),
             ),
             const SizedBox(height: 10),
@@ -320,7 +328,7 @@ class CreateSharedWalletState extends State<CreateSharedWallet> {
                   child: Text(
                     '${AppLocalizations.of(context)!.translate('pub_key')}: $_publicKey',
                     style: TextStyle(
-                      fontSize: 16,
+                      fontSize: MediaQuery.textScalerOf(context).scale(16),
                       color: AppColors.text(context),
                       fontWeight: FontWeight.w500,
                     ),
@@ -359,7 +367,7 @@ class CreateSharedWalletState extends State<CreateSharedWallet> {
                       '2. ${AppLocalizations.of(context)!.translate('enter_pub_keys')}',
                       style: GoogleFonts.poppins(
                         fontWeight: FontWeight.w600,
-                        fontSize: 16,
+                        fontSize: MediaQuery.textScalerOf(context).scale(16),
                         color: (_isThresholdMissing ||
                                 _arePublicKeysMissing ||
                                 _isYourPubKeyMissing)
@@ -463,7 +471,9 @@ class CreateSharedWalletState extends State<CreateSharedWallet> {
                               children: [
                                 Text(
                                   key['alias']!,
-                                  style: const TextStyle(fontSize: 14),
+                                  style: TextStyle(
+                                      fontSize: MediaQuery.textScalerOf(context)
+                                          .scale(14)),
                                 ),
                               ],
                             ),
@@ -489,7 +499,7 @@ class CreateSharedWalletState extends State<CreateSharedWallet> {
                         '3. ${AppLocalizations.of(context)!.translate('enter_multisig')}',
                         style: GoogleFonts.poppins(
                           fontWeight: FontWeight.w600,
-                          fontSize: 16,
+                          fontSize: MediaQuery.textScalerOf(context).scale(16),
                           color: (_isThresholdMissing ||
                                   _arePublicKeysMissing ||
                                   _isYourPubKeyMissing)
@@ -546,7 +556,9 @@ class CreateSharedWalletState extends State<CreateSharedWallet> {
                                     Text(
                                       "Threshold: $threshold",
                                       style: TextStyle(
-                                        fontSize: 13, // smaller text
+                                        fontSize: 13 *
+                                            MediaQuery.of(context)
+                                                .textScaleFactor, // smaller text
                                         fontWeight: FontWeight.w600,
                                         color: AppColors.text(context),
                                       ),
@@ -564,7 +576,9 @@ class CreateSharedWalletState extends State<CreateSharedWallet> {
                                         title: Text(
                                           pk['alias'] ?? "Unknown",
                                           style: TextStyle(
-                                            fontSize: 12,
+                                            fontSize: 12 *
+                                                MediaQuery.of(context)
+                                                    .textScaleFactor,
                                             color: AppColors.text(context),
                                           ),
                                         ),
@@ -603,7 +617,7 @@ class CreateSharedWalletState extends State<CreateSharedWallet> {
                       ]),
                       style: GoogleFonts.poppins(
                         fontWeight: FontWeight.w400,
-                        fontSize: 14,
+                        fontSize: MediaQuery.textScalerOf(context).scale(14),
                         color: AppColors.error(context),
                       ),
                     ),
@@ -622,7 +636,8 @@ class CreateSharedWalletState extends State<CreateSharedWallet> {
                         '4. ${AppLocalizations.of(context)!.translate('enter_timelock_conditions')}',
                         style: GoogleFonts.poppins(
                             fontWeight: FontWeight.w600,
-                            fontSize: 16,
+                            fontSize:
+                                MediaQuery.textScalerOf(context).scale(16),
                             color: AppColors.text(context)),
                       ),
                       IconButton(
@@ -749,19 +764,31 @@ class CreateSharedWalletState extends State<CreateSharedWallet> {
                                 children: [
                                   Text(
                                     '${AppLocalizations.of(context)!.translate('threshold')}: ${condition['threshold']}',
-                                    style: const TextStyle(fontSize: 14),
+                                    style: TextStyle(
+                                        fontSize:
+                                            MediaQuery.textScalerOf(context)
+                                                .scale(14)),
                                   ),
                                   Text(
                                     '${AppLocalizations.of(context)!.translate('older')}: ${condition['older']}',
-                                    style: const TextStyle(fontSize: 14),
+                                    style: TextStyle(
+                                        fontSize:
+                                            MediaQuery.textScalerOf(context)
+                                                .scale(14)),
                                   ),
                                   Text(
                                     '${AppLocalizations.of(context)!.translate('after')}: ${condition['after']}',
-                                    style: const TextStyle(fontSize: 14),
+                                    style: TextStyle(
+                                        fontSize:
+                                            MediaQuery.textScalerOf(context)
+                                                .scale(14)),
                                   ),
                                   Text(
                                     '${AppLocalizations.of(context)!.translate('pub_keys')}: ${aliases.join(', ')}',
-                                    style: const TextStyle(fontSize: 14),
+                                    style: TextStyle(
+                                        fontSize:
+                                            MediaQuery.textScalerOf(context)
+                                                .scale(14)),
                                   ),
                                 ],
                               ),
@@ -784,7 +811,8 @@ class CreateSharedWalletState extends State<CreateSharedWallet> {
                         '5. ${AppLocalizations.of(context)!.translate('create_descriptor')}',
                         style: GoogleFonts.poppins(
                             fontWeight: FontWeight.w600,
-                            fontSize: 16,
+                            fontSize:
+                                MediaQuery.textScalerOf(context).scale(16),
                             color: AppColors.text(context)),
                       ),
                       IconButton(
@@ -807,9 +835,9 @@ class CreateSharedWalletState extends State<CreateSharedWallet> {
                   const SizedBox(height: 10),
                   CustomButton(
                     onPressed: () {
-                      print(threshold);
+                      // print(threshold);
 
-                      print(publicKeysWithAliasMultisig);
+                      // print(publicKeysWithAliasMultisig);
 
                       _createDescriptor();
                     },
@@ -930,6 +958,19 @@ class CreateSharedWalletState extends State<CreateSharedWallet> {
                       entry['publicKey']?.toLowerCase() !=
                           currentPublicKey?.toLowerCase());
 
+                  bool hasTestnetPath = false;
+                  if (settingsProvider.network == Network.bitcoin) {
+                    hasTestnetPath = newPublicKey.contains("84'/1'/0'") ||
+                        newPublicKey.contains('84h/1h/0h') ||
+                        publicKeysWithAlias.any((entry) {
+                          final pubKey =
+                              entry['publicKey']?.toLowerCase() ?? '';
+                          // Check for the testnet pattern [fingerprint/84'/1'/0']
+                          return pubKey.contains("84'/1'/0'") ||
+                              pubKey.contains('84h/1h/0h');
+                        });
+                  }
+
                   bool aliasExists = publicKeysWithAlias.any((entry) =>
                       entry['alias']?.toLowerCase() == newAlias.toLowerCase() &&
                       entry['alias']?.toLowerCase() !=
@@ -939,6 +980,11 @@ class CreateSharedWalletState extends State<CreateSharedWallet> {
                     setDialogState(() {
                       errorMessage = AppLocalizations.of(rootContext)!
                           .translate('pub_key_exists');
+                    });
+                  } else if (hasTestnetPath) {
+                    setDialogState(() {
+                      errorMessage = AppLocalizations.of(rootContext)!
+                          .translate('old_public_key');
                     });
                   } else if (aliasExists) {
                     setDialogState(() {
@@ -991,8 +1037,8 @@ class CreateSharedWalletState extends State<CreateSharedWallet> {
       thresholdController.text = threshold!;
     }
 
-    print(publicKeysWithAliasMultisig);
-    print(selectedPubKeys);
+    // print(publicKeysWithAliasMultisig);
+    // print(selectedPubKeys);
     final rootContext = context;
 
     CustomBottomSheet.buildCustomStatefulBottomSheet(
@@ -1042,7 +1088,9 @@ class CreateSharedWalletState extends State<CreateSharedWallet> {
                       ),
                       child: Text(
                         key['alias']!,
-                        style: const TextStyle(fontSize: 14),
+                        style: TextStyle(
+                            fontSize:
+                                MediaQuery.textScalerOf(context).scale(14)),
                       ),
                     ),
                   );
@@ -1142,13 +1190,17 @@ class CreateSharedWalletState extends State<CreateSharedWallet> {
 
     String? currentThreshold;
     String? currentOlder;
+    String? currentAfter;
     List<Map<String, dynamic>> updatedPubkeys = [];
 
     if (isUpdating && condition != null) {
       currentThreshold = condition['threshold']?.toString();
       currentOlder = condition['older']?.toString();
+      currentAfter = condition['after']?.toString();
       thresholdController.text = currentThreshold ?? '';
       olderController.text = currentOlder ?? '';
+
+      afterController.text = currentAfter ?? '';
 
       // Ensure pubkeys is correctly extracted as a list
       if (condition['pubkeys'] is String) {
@@ -1217,7 +1269,9 @@ class CreateSharedWalletState extends State<CreateSharedWallet> {
                       ),
                       child: Text(
                         key['alias']!,
-                        style: const TextStyle(fontSize: 14),
+                        style: TextStyle(
+                            fontSize:
+                                MediaQuery.textScalerOf(context).scale(14)),
                       ),
                     ),
                   );
@@ -1435,7 +1489,9 @@ class CreateSharedWalletState extends State<CreateSharedWallet> {
                       !(olderController.text.isNotEmpty &&
                           afterController.text.isNotEmpty)) {
                     // Convert input to integer for accurate comparison
-                    int newOlder = int.tryParse(olderController.text) ?? -1;
+                    int? newOlder = int.tryParse(olderController.text);
+                    int? newAfter = int.tryParse(afterController.text);
+
                     final newPubkeys = selectedPubKeys;
                     final String newThreshold = thresholdController.text.trim();
 
@@ -1447,7 +1503,14 @@ class CreateSharedWalletState extends State<CreateSharedWallet> {
                           existingCondition['older'].toString() != currentOlder,
                     );
 
-                    if (isDuplicateOlder) {
+                    bool isDuplicateAfter = timelockConditions.any(
+                      (existingCondition) =>
+                          int.tryParse(existingCondition['after'].toString()) ==
+                              newOlder &&
+                          existingCondition['after'].toString() != currentAfter,
+                    );
+
+                    if (isDuplicateOlder || isDuplicateAfter) {
                       NotificationHelper.show(
                         rootContext,
                         message: AppLocalizations.of(rootContext)!
@@ -1459,7 +1522,8 @@ class CreateSharedWalletState extends State<CreateSharedWallet> {
                         setState(() {
                           // Update the condition with new values
                           condition!['threshold'] = newThreshold;
-                          condition['older'] = newOlder.toString();
+                          condition['older'] = newOlder ?? "";
+                          condition['after'] = newAfter ?? "";
                           condition['pubkeys'] = jsonEncode(newPubkeys);
                         });
 
@@ -1479,7 +1543,7 @@ class CreateSharedWalletState extends State<CreateSharedWallet> {
                             'after': afterController.text,
                             'pubkeys': jsonEncode(newPubkeys),
                           });
-                          print(timelockConditions);
+                          // print(timelockConditions);
                         });
 
                         // Close the dialog after adding the condition
@@ -1606,8 +1670,8 @@ class CreateSharedWalletState extends State<CreateSharedWallet> {
 
       List<String> formattedTimelocks = timelockConditions.map((condition) {
         String threshold = condition['threshold'];
-        String older = condition['older'];
-        String after = condition['after'];
+        String older = condition['older'].toString();
+        String after = condition['after'].toString();
 
         // print('olderCondition: $older');
         // print('afterCondition: $after');
@@ -1681,7 +1745,7 @@ class CreateSharedWalletState extends State<CreateSharedWallet> {
                   child: Text(
                     _finalDescriptor,
                     style: TextStyle(
-                      fontSize: 16,
+                      fontSize: MediaQuery.textScalerOf(context).scale(16),
                       color: Theme.of(context).colorScheme.onSurface,
                       fontWeight: FontWeight.w500,
                     ),
@@ -1709,7 +1773,7 @@ class CreateSharedWalletState extends State<CreateSharedWallet> {
             AppLocalizations.of(rootContext)!.translate('conditions'),
             style: GoogleFonts.poppins(
               fontWeight: FontWeight.bold,
-              fontSize: 16,
+              fontSize: MediaQuery.textScalerOf(context).scale(16),
               color: AppColors.cardTitle(context),
             ),
           ),
@@ -1736,7 +1800,7 @@ class CreateSharedWalletState extends State<CreateSharedWallet> {
                     RichText(
                       text: TextSpan(
                         style: GoogleFonts.poppins(
-                          fontSize: 14,
+                          fontSize: MediaQuery.textScalerOf(context).scale(14),
                           fontWeight: FontWeight.w500,
                           color: AppColors.text(context),
                         ),
@@ -1762,7 +1826,7 @@ class CreateSharedWalletState extends State<CreateSharedWallet> {
                     RichText(
                       text: TextSpan(
                         style: GoogleFonts.poppins(
-                          fontSize: 14,
+                          fontSize: MediaQuery.textScalerOf(context).scale(14),
                           fontWeight: FontWeight.w500,
                           color: AppColors.text(context),
                         ),
@@ -1803,7 +1867,7 @@ class CreateSharedWalletState extends State<CreateSharedWallet> {
                     RichText(
                       text: TextSpan(
                         style: GoogleFonts.poppins(
-                          fontSize: 14,
+                          fontSize: MediaQuery.textScalerOf(context).scale(14),
                           fontWeight: FontWeight.w500,
                           color: Theme.of(context).colorScheme.onSurface,
                         ),
@@ -1837,7 +1901,7 @@ class CreateSharedWalletState extends State<CreateSharedWallet> {
             AppLocalizations.of(rootContext)!.translate('pub_keys'),
             style: GoogleFonts.poppins(
               fontWeight: FontWeight.bold,
-              fontSize: 16,
+              fontSize: MediaQuery.textScalerOf(context).scale(16),
               color: AppColors.cardTitle(context),
             ),
           ),
@@ -1858,7 +1922,7 @@ class CreateSharedWalletState extends State<CreateSharedWallet> {
                     RichText(
                       text: TextSpan(
                         style: GoogleFonts.poppins(
-                          fontSize: 14,
+                          fontSize: MediaQuery.textScalerOf(context).scale(14),
                           fontWeight: FontWeight.w500,
                           color: Theme.of(context).colorScheme.onSurface,
                         ),
@@ -1884,7 +1948,7 @@ class CreateSharedWalletState extends State<CreateSharedWallet> {
                     RichText(
                       text: TextSpan(
                         style: GoogleFonts.poppins(
-                          fontSize: 14,
+                          fontSize: MediaQuery.textScalerOf(context).scale(14),
                           fontWeight: FontWeight.w500,
                           color: Theme.of(context).colorScheme.onSurface,
                         ),
@@ -2012,7 +2076,7 @@ class CreateSharedWalletState extends State<CreateSharedWallet> {
     int? currentTargetHeight,
   }) async {
     try {
-      print(_currHeight);
+      // print(_currHeight);
       const int maxBlocksAhead = 262800; // ~5 years
       final int initialBlocksAhead = (() {
         if (currentTargetHeight == null) return 0;

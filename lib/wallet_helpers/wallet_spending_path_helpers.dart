@@ -1,6 +1,7 @@
 import 'dart:async';
-import 'package:bdk_flutter/bdk_flutter.dart';
+import 'package:bdk_dart/bdk.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_wallet/languages/app_localizations.dart';
 import 'package:flutter_wallet/services/utilities_service.dart';
 import 'package:flutter_wallet/services/wallet_service.dart';
@@ -30,10 +31,11 @@ class WalletSpendingPathHelpers {
   final String mnemonic;
   final Wallet wallet;
   final String address;
-  final BigInt avBalance;
+  final int avBalance;
   final void Function(String newAddress)? onNewAddressGenerated;
   final String? descriptor;
   Future<void> Function() syncWallet;
+  Set<String> myAddresses;
 
   bool _isUserInteracting = false;
   bool _isScrollingForward = true;
@@ -58,6 +60,7 @@ class WalletSpendingPathHelpers {
     required this.avBalance,
     required this.onNewAddressGenerated,
     required this.syncWallet,
+    required this.myAddresses,
     this.descriptor,
 
     // SharedWallet Variables
@@ -83,6 +86,7 @@ class WalletSpendingPathHelpers {
           wallet: wallet,
           onNewAddressGenerated: onNewAddressGenerated,
           syncWallet: syncWallet,
+          myAddresses: myAddresses,
         ) {
     if (mySpendingPaths.length > 1) {
       _startAutoScroll(); // Start scrolling when the class is initialized
@@ -152,23 +156,25 @@ class WalletSpendingPathHelpers {
               : Listener(
                   onPointerUp: (event) => _stopAutoScroll(),
                   onPointerDown: (event) => _stopAutoScroll(),
-                  child: Align(
-                    alignment: Alignment.centerLeft,
-                    child: SingleChildScrollView(
-                      scrollDirection: Axis.horizontal,
-                      controller: _scrollController,
-                      child: Row(
-                        children: mySpendingPaths.asMap().entries.map((entry) {
-                          int index = entry.key;
-                          var path = entry.value;
+                  child: SingleChildScrollView(
+                    scrollDirection: Axis.horizontal,
+                    controller: _scrollController,
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: mySpendingPaths.asMap().entries.map((entry) {
+                        int index = entry.key;
+                        var path = entry.value;
 
-                          return buildSpendingPathBox(
+                        return Padding(
+                          padding: const EdgeInsets.only(right: 12),
+                          child: buildSpendingPathBox(
                             path,
                             index,
                             mySpendingPaths.length,
-                          );
-                        }).toList(),
-                      ),
+                          ),
+                        );
+                      }).toList(),
                     ),
                   ),
                 )
@@ -182,6 +188,15 @@ class WalletSpendingPathHelpers {
     int length,
   ) {
     // print('Spending paths: $path');
+
+    // Calculate responsive fixed size
+    final screenWidth = MediaQuery.of(context).size.width;
+    final screenHeight = MediaQuery.of(context).size.height;
+
+    // Card width: 85% of screen width on small devices, with a max cap
+    final cardWidth = screenWidth > 600
+        ? screenWidth * 0.6 // Tablets: 60% of screen
+        : screenWidth * 0.85; // Phones: 85% of screen
 
     // Extract aliases for the current pathInfo's fingerprints
     final List<String> pathAliases =
@@ -236,7 +251,7 @@ class WalletSpendingPathHelpers {
 
       // Calculate time remaining if not spendable
       if (isSpendable) {
-        totalSpendable += int.parse(value.toString());
+        totalSpendable += value as int;
       } else {
         // print(utxo['txid']);
 
@@ -290,7 +305,7 @@ class WalletSpendingPathHelpers {
                 child: Text(
                   "${UtilitiesService.formatBitcoinAmount(totalValue)} ${AppLocalizations.of(context)!.translate('sats_available')} $timeRemaining",
                   style: TextStyle(
-                    fontSize: 12,
+                    fontSize: MediaQuery.textScalerOf(context).scale(12),
                     color: AppColors.text(context),
                   ),
                 ),
@@ -316,7 +331,7 @@ class WalletSpendingPathHelpers {
               child: Text(
                 "${UtilitiesService.formatBitcoinAmount(futureTotal)} ${AppLocalizations.of(context)!.translate('future_sats')}",
                 style: TextStyle(
-                  fontSize: 12,
+                  fontSize: MediaQuery.textScalerOf(context).scale(12),
                   color: AppColors.text(context),
                 ),
               ),
@@ -336,8 +351,8 @@ class WalletSpendingPathHelpers {
               .translate('total_unconfirmed')
               .replaceAll('{x}',
                   UtilitiesService.formatBitcoinAmount(totalUnconfirmed)),
-          style: const TextStyle(
-            fontSize: 14,
+          style: TextStyle(
+            fontSize: MediaQuery.textScalerOf(context).scale(14),
             fontWeight: FontWeight.bold,
             color: Colors.red,
           ),
@@ -370,372 +385,670 @@ class WalletSpendingPathHelpers {
       }
     }
 
-    return Stack(
-      children: [
-        // 🌟 Main Card
-        Card(
-          margin: const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12.0),
-          ),
-          elevation: 5,
-          color: AppColors.gradient(context),
-          child: Padding(
-            padding: const EdgeInsets.all(16.0),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // 🔹 **Spending Path Label**
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Text(
-                      timelockType == 'older'
-                          ? '${AppLocalizations.of(context)!.translate('timelock')}: $timelock ${AppLocalizations.of(context)!.translate('blocks')}'
-                          : timelockType == 'after'
-                              ? '${AppLocalizations.of(context)!.translate('timelock')}: $timelock ${AppLocalizations.of(context)!.translate('height')}'
-                              : 'MULTISIG',
-                      style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                        color: AppColors.cardTitle(context),
-                      ),
-                    ),
+    // Needed for the size of the card and to check whether or not the backup button should be shown
+    bool backupBool = (path['threshold'] == null || path['threshold'] == 1) &&
+        pathAliases.isNotEmpty &&
+        (timelockType == 'older' || timelockType == 'after');
 
-                    const SizedBox(width: 10),
+    final double cardHeight = transactionDetails.isNotEmpty
+        ? screenHeight * 0.30 // % when there are transaction details
+        : backupBool
+            ? screenHeight * 0.23
+            : screenHeight * 0.21; // % when no transaction details
 
-                    Icon(
-                      totalSpendable > 0 ? Icons.lock_open : Icons.lock_clock,
-                      color: AppColors.icon(context),
-                      size: 20,
-                    ),
-
-                    const SizedBox(width: 10),
-
-                    // Show all available paths
-
-                    GestureDetector(
-                      onTap: () {
-                        showPathsDialog();
-                      },
-                      child: Icon(
-                        Icons.more_vert,
-                        color: AppColors.icon(context),
-                        size: 22,
-                      ),
-                    ),
-
-                    const SizedBox(width: 10),
-
-                    // Send available balance from spending path
-                    GestureDetector(
-                      onTap: () async {
-                        final rootContext = context;
-
-                        if (totalSpendable == 0) {
-                          // Show SnackBar if totalSpendable is 0
-                          NotificationHelper.showError(context,
-                              message: AppLocalizations.of(rootContext)!
-                                  .translate('error_insufficient_funds'));
-                          return; // Stop execution since no funds are available
-                        }
-
-                        bool recipientEntered = (await CustomBottomSheet
-                                .buildCustomBottomSheet<bool>(
-                              context: rootContext,
-                              titleKey: 'enter_rec_addr',
-                              content: ConstrainedBox(
-                                constraints: BoxConstraints(
-                                  maxHeight:
-                                      MediaQuery.of(context).size.height * 0.7,
-                                ),
-                                child: TextFormField(
-                                  controller: recipientController,
-                                  decoration:
-                                      CustomTextFieldStyles.textFieldDecoration(
-                                    context: context,
-                                    labelText: AppLocalizations.of(rootContext)!
-                                        .translate('recipient_address'),
-                                    hintText: AppLocalizations.of(rootContext)!
-                                        .translate('enter_rec_addr'),
-                                  ),
-                                ),
-                              ),
-                              actions: [
-                                Row(
-                                  mainAxisAlignment: MainAxisAlignment.center,
-                                  children: [
-                                    InkwellButton(
-                                      onTap: () => Navigator.of(context,
-                                              rootNavigator: true)
-                                          .pop(false),
-                                      label: AppLocalizations.of(rootContext)!
-                                          .translate('cancel'),
-                                      backgroundColor: AppColors.text(context),
-                                      textColor: AppColors.gradient(context),
-                                      icon: Icons.dangerous,
-                                      iconColor: AppColors.error(context),
-                                    ),
-                                    InkwellButton(
-                                      onTap: () => Navigator.of(context,
-                                              rootNavigator: true)
-                                          .pop(true),
-                                      label: AppLocalizations.of(rootContext)!
-                                          .translate('confirm'),
-                                      backgroundColor: AppColors.text(context),
-                                      textColor: AppColors.gradient(context),
-                                      icon: Icons.verified,
-                                      iconColor: AppColors.icon(context),
-                                    ),
-                                  ],
-                                ),
-                              ],
-                            )) ??
-                            false;
-
-                        if (recipientEntered) {
-                          // Show the loading dialog
-                          DialogHelper.showLoadingDialog(rootContext);
-
-                          try {
-                            await sendTxHelper.sendTx(
-                              true,
-                              isFromSpendingPath: true,
-                              index: index,
-                              amount: totalSpendable,
-                            );
-                          } finally {
-                            Navigator.of(rootContext, rootNavigator: true)
-                                .pop();
-                          }
-                        }
-                      },
-                      child: Icon(
-                        Icons.send,
-                        color: totalSpendable == 0
-                            ? AppColors.unavailableColor
-                            : AppColors.icon(context),
-                        size: 22,
-                      ),
-                    ),
-
-                    const SizedBox(width: 10),
-
-                    // BACKUP Transaction Creation
-
-                    if ((path['threshold'] == null || path['threshold'] == 1) &&
-                        pathAliases.isNotEmpty &&
-                        (timelockType == 'older' || timelockType == 'after'))
-                      GestureDetector(
-                        onTap: () async {
-                          final rootContext = context;
-
-                          try {
-                            final singleWallet = await walletService
-                                .createOrRestoreWallet(mnemonic);
-
-                            final recipient = singleWallet
-                                .getAddress(
-                                    addressIndex:
-                                        const AddressIndex.peek(index: 0))
-                                .address
-                                .asString();
-
-                            int backupSpendable = 0;
-
-                            for (var utxo in utxos) {
-                              final status = utxo['status'];
-                              final confirmed =
-                                  status != null && status['confirmed'] == true;
-
-                              if (confirmed) {
-                                backupSpendable +=
-                                    int.parse(utxo['value'].toString());
-
-                                continue;
-                              }
-                            }
-
-                            final shouldContinue = await showDialog<bool>(
-                              context: rootContext,
-                              builder: (ctx) => AlertDialog(
-                                backgroundColor: AppColors.dialog(context),
-                                title: const Text("Confirm Backup Transaction"),
-                                content: Column(
-                                  mainAxisSize: MainAxisSize.min,
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    const Text(
-                                      "You are about to create and sign a backup transaction with the following details:",
-                                    ),
-                                    const SizedBox(height: 12),
-                                    Text(
-                                      "Destination Address:\n$recipient",
-                                      style: const TextStyle(
-                                          fontWeight: FontWeight.bold),
-                                    ),
-                                    const SizedBox(height: 12),
-                                    Text(
-                                      "This transaction will be signed using the 1-of-N timelock path (older/after).\n\n"
-                                      "You can broadcast this transaction later using Bitcoin Core, or other blockchain explorers.",
-                                    ),
-                                  ],
-                                ),
-                                actions: [
-                                  TextButton(
-                                    child: const Text("Cancel"),
-                                    onPressed: () =>
-                                        Navigator.of(ctx).pop(false),
-                                  ),
-                                  ElevatedButton(
-                                    child: const Text("Continue"),
-                                    onPressed: () =>
-                                        Navigator.of(ctx).pop(true),
-                                  ),
-                                ],
-                              ),
-                            );
-
-                            // Bail out if user cancels
-                            if (shouldContinue != true) return;
-
-                            // print(recipient);
-                            // print('totalSpendable: $totalSpendable');
-
-                            DialogHelper.showLoadingDialog(rootContext);
-
-                            final result = await walletService.createBackupTx(
-                              descriptor.toString(),
-                              mnemonic,
-                              recipient,
-                              BigInt.from(backupSpendable),
-                              index,
-                              avBalance,
-                              spendingPaths: mySpendingPaths,
-                              isSendAllBalance: true,
-                            );
-
-                            // print('Rezuldado');
-                            // print(result);
-
-                            final finalResult =
-                                await walletService.createBackupTx(
-                              descriptor.toString(),
-                              mnemonic,
-                              recipient,
-                              BigInt.from(int.parse(result.toString())),
-                              index,
-                              avBalance,
-                              spendingPaths: mySpendingPaths,
-                            );
-
-                            // print('RezuldadoFinal');
-
-                            Navigator.of(rootContext, rootNavigator: true)
-                                .pop();
-
-                            sendTxHelper.showHEXDialog(
-                              finalResult.toString(),
-                              rootContext,
-                            );
-                          } catch (e) {
-                            NotificationHelper.showError(
-                              context,
-                              message: 'Error: $e',
-                            );
-                          }
-
-                          // print(finalResult);
-                        },
-                        child: Icon(
-                          Icons.backup,
-                          color: AppColors.icon(context),
-                          size: 22,
-                        ),
-                      ),
+    return SizedBox(
+      width: cardWidth,
+      height: cardHeight,
+      child: Stack(
+        clipBehavior: Clip.none,
+        children: [
+          // 🌟 Main Card
+          Card(
+            margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(20.0),
+            ),
+            elevation: 2,
+            shadowColor: AppColors.icon(context).opaque(0.2),
+            color: AppColors.gradient(context),
+            child: Container(
+              width: double.infinity,
+              height: double.infinity,
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(20),
+                gradient: LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: [
+                    AppColors.gradient(context),
+                    AppColors.gradient(context).opaque(0.9),
                   ],
                 ),
+              ),
+              child: Padding(
+                padding: const EdgeInsets.all(15.0),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // 📌 LEFT SECTION: Label, Balance, and Transaction Details
+                    Expanded(
+                      flex: 2,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              // 🔹 **Spending Path Label**
+                              spendingPathLabel(timelockType, timelock),
 
-                const SizedBox(height: 8),
+                              const SizedBox(width: 16),
 
-                // 🔹 **Spendable Balance (Big Bold Text)**
-                Container(
-                  padding: const EdgeInsets.all(10),
+                              // 🔹 **Index Badge** - Now positioned at the bottom of the right side
+                              if (path['threshold'] != null)
+                                indexBadge(path, pathAliases, totalSpendable),
+                            ],
+                          ),
+
+                          const SizedBox(height: 16),
+
+                          // 🔹 **Spendable Balance**
+                          spendableBalance(aliasText),
+
+                          const SizedBox(height: 8),
+
+                          // 🔹 **Transaction Details**
+                          if (transactionDetails.isNotEmpty)
+                            Container(
+                              margin: const EdgeInsets.only(top: 8),
+                              padding: const EdgeInsets.all(12),
+                              decoration: BoxDecoration(
+                                color:
+                                    AppColors.cardTitle(context).opaque(0.05),
+                                borderRadius: BorderRadius.circular(16),
+                                border: Border.all(
+                                  color:
+                                      AppColors.cardTitle(context).opaque(0.1),
+                                  width: 1,
+                                ),
+                              ),
+                              child:
+                                  transactionDetailsWidget(transactionDetails),
+                            ),
+                        ],
+                      ),
+                    ),
+
+                    const SizedBox(width: 16),
+
+                    // 🔘 RIGHT SECTION: Action Buttons
+                    SizedBox(
+                      width: 48, // Fixed width for button column
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.start,
+                        children: [
+                          // More options
+                          GestureDetector(
+                            onTap: () {
+                              HapticFeedback.lightImpact();
+                              showPathsDialog();
+                            },
+                            child: Container(
+                              padding: const EdgeInsets.all(8),
+                              decoration: BoxDecoration(
+                                color: AppColors.icon(context).opaque(0.1),
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              child: Icon(
+                                Icons.more_vert_rounded,
+                                color: AppColors.icon(context),
+                                size: 22,
+                              ),
+                            ),
+                          ),
+
+                          const SizedBox(height: 12),
+
+                          // Send button
+                          sendAvailableBalance(totalSpendable, index),
+
+                          const SizedBox(height: 12),
+
+                          // Backup button (conditionally shown)
+                          if (backupBool) backupTransaction(index),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget sendAvailableBalance(int totalSpendable, int index) {
+    return GestureDetector(
+      onTap: () async {
+        final rootContext = context;
+
+        if (totalSpendable == 0) {
+          // Show SnackBar if totalSpendable is 0
+          NotificationHelper.showError(context,
+              message: AppLocalizations.of(rootContext)!
+                  .translate('error_insufficient_funds'));
+          return; // Stop execution since no funds are available
+        }
+
+        bool recipientEntered = (await CustomBottomSheet.buildCustomBottomSheet<
+                bool>(
+              context: rootContext,
+              titleKey: 'enter_rec_addr',
+              content: ConstrainedBox(
+                constraints: BoxConstraints(
+                  maxHeight: MediaQuery.of(context).size.height * 0.7,
+                ),
+                child: TextFormField(
+                  controller: recipientController,
+                  decoration: CustomTextFieldStyles.textFieldDecoration(
+                    context: context,
+                    labelText: AppLocalizations.of(rootContext)!
+                        .translate('recipient_address'),
+                    hintText: AppLocalizations.of(rootContext)!
+                        .translate('enter_rec_addr'),
+                  ),
+                ),
+              ),
+              actions: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    InkwellButton(
+                      onTap: () =>
+                          Navigator.of(context, rootNavigator: true).pop(false),
+                      label:
+                          AppLocalizations.of(rootContext)!.translate('cancel'),
+                      backgroundColor: AppColors.text(context),
+                      textColor: AppColors.gradient(context),
+                      icon: Icons.dangerous,
+                      iconColor: AppColors.error(context),
+                    ),
+                    InkwellButton(
+                      onTap: () =>
+                          Navigator.of(context, rootNavigator: true).pop(true),
+                      label: AppLocalizations.of(rootContext)!
+                          .translate('confirm'),
+                      backgroundColor: AppColors.text(context),
+                      textColor: AppColors.gradient(context),
+                      icon: Icons.verified,
+                      iconColor: AppColors.icon(context),
+                    ),
+                  ],
+                ),
+              ],
+            )) ??
+            false;
+
+        if (recipientEntered) {
+          // Show the loading dialog
+          DialogHelper.showLoadingDialog(rootContext);
+
+          try {
+            await sendTxHelper.sendTx(
+              true,
+              address,
+              isFromSpendingPath: true,
+              index: index,
+              amount: totalSpendable,
+            );
+          } finally {
+            Navigator.of(rootContext, rootNavigator: true).pop();
+          }
+        }
+      },
+      child: Container(
+        padding: const EdgeInsets.all(8),
+        decoration: BoxDecoration(
+          color: AppColors.icon(context).opaque(0.1),
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Icon(
+          Icons.send,
+          color: totalSpendable == 0
+              ? AppColors.unavailableColor
+              : AppColors.icon(context),
+          size: 22,
+        ),
+      ),
+    );
+  }
+
+  Widget spendableBalance(String aliasText) {
+    // Store the full text for the bottom sheet
+    final String fullAliasText = aliasText;
+
+    // Extract just the first line (the spendable amount)
+    final String firstLine = aliasText.split('\n').first;
+
+    return Container(
+      padding: const EdgeInsets.all(8),
+      decoration: BoxDecoration(
+        color: AppColors.background(context).opaque(0.3),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Flexible(
+            fit: FlexFit.loose,
+            child: Text(
+              firstLine,
+              style: TextStyle(
+                fontSize: MediaQuery.textScalerOf(context).scale(14),
+                fontWeight: FontWeight.bold,
+                color: AppColors.text(context),
+              ),
+            ),
+          ),
+
+          // Show "more..." button only if there's additional content
+          if (aliasText.contains('\n'))
+            Padding(
+              padding: const EdgeInsets.only(left: 8),
+              child: GestureDetector(
+                onTap: () {
+                  HapticFeedback.lightImpact();
+                  _showSpendableDetails(context, fullAliasText);
+                },
+                child: Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                   decoration: BoxDecoration(
-                    color: AppColors.text(context).opaque(0.1),
-                    borderRadius: BorderRadius.circular(8),
+                    color: AppColors.cardTitle(context).opaque(0.15),
+                    borderRadius: BorderRadius.circular(12),
                   ),
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      Icon(
-                        Icons.check_circle,
-                        color: AppColors.icon(context),
-                        size: 20,
-                      ),
-                      const SizedBox(width: 6),
-                      Flexible(
-                        fit: FlexFit.loose,
-                        child: Text(
-                          aliasText,
-                          style: TextStyle(
-                            fontSize: 14,
-                            fontWeight: FontWeight.bold,
-                            color: AppColors.text(context),
-                          ),
+                      Text(
+                        'more...',
+                        style: TextStyle(
+                          fontSize: MediaQuery.textScalerOf(context).scale(11),
+                          fontWeight: FontWeight.w500,
+                          color: AppColors.cardTitle(context),
                         ),
+                      ),
+                      const SizedBox(width: 2),
+                      Icon(
+                        Icons.arrow_forward_ios_rounded,
+                        size: 10,
+                        color: AppColors.cardTitle(context),
                       ),
                     ],
                   ),
                 ),
-
-                const SizedBox(height: 8),
-
-                // 🔹 **Transaction Details**
-                if (transactionDetails.isNotEmpty)
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        AppLocalizations.of(context)!
-                            .translate('upcoming_funds'),
-                        style: TextStyle(
-                          fontSize: 14,
-                          fontWeight: FontWeight.bold,
-                          color: AppColors.text(context),
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      ...transactionDetails,
-                    ],
-                  ),
-              ],
+              ),
             ),
+        ],
+      ),
+    );
+  }
+
+// Add this method to your class
+  Future<void> _showSpendableDetails(BuildContext context, String fullText) {
+    // Parse the full text to extract different sections
+    final lines = fullText.split('\n');
+
+    String aliasName = "";
+    if (lines.length > 1) {
+      final RegExp regex = RegExp(r'\(([^)]+)\)');
+      final match = regex.firstMatch(lines[0]);
+      if (match != null) {
+        aliasName = match.group(1).toString();
+      }
+    }
+
+    // Build a nicely formatted content widget
+    final content = Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // Spendable amount section
+        Container(
+          width: double.infinity,
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: AppColors.background(context).opaque(0.2),
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Spendable Amount',
+                style: TextStyle(
+                  fontSize: MediaQuery.textScalerOf(context).scale(12),
+                  fontWeight: FontWeight.w500,
+                  color: AppColors.text(context).opaque(0.7),
+                ),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                lines[0], // First line is the spendable amount
+                style: TextStyle(
+                  fontSize: MediaQuery.textScalerOf(context).scale(18),
+                  fontWeight: FontWeight.bold,
+                  color: AppColors.cardTitle(context),
+                ),
+              ),
+            ],
           ),
         ),
 
-        // 🔹 **Index Badge (Top-Right Corner)**
-        if (path['threshold'] != null)
-          Positioned(
-            top: 13,
-            right: 13,
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-              decoration: BoxDecoration(
-                color: AppColors.cardTitle(context),
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Text(
-                '${path['threshold']}/${pathAliases.length}',
-                style: TextStyle(
-                  color: AppColors.gradient(context),
-                  fontSize: 12,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
+        // Alias info section (if exists)
+        if (lines.length > 1 && lines[1].isNotEmpty) ...[
+          const SizedBox(height: 16),
+          _buildDetailSection(
+            context,
+            icon: Icons.person_outline_rounded,
+            title: 'Your Alias',
+            content: aliasName,
+          ),
+        ],
+
+        // Spending rules section (remaining lines)
+        if (lines.length > 2) ...[
+          const SizedBox(height: 16),
+          _buildDetailSection(
+            context,
+            icon: Icons.rule_rounded,
+            title: 'Spending Rules',
+            content: lines.sublist(2).join('\n'),
+          ),
+        ],
+      ],
+    );
+
+    return CustomBottomSheet.buildCustomBottomSheet(
+      context: context,
+      titleKey: 'spending_details', // You'll need to add this translation key
+      content: content,
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: Text(
+            'Close',
+            style: TextStyle(
+              color: AppColors.cardTitle(context),
             ),
           ),
+        ),
       ],
+    );
+  }
+
+// Helper method to create consistent detail sections
+  Widget _buildDetailSection(
+    BuildContext context, {
+    required IconData icon,
+    required String title,
+    required String content,
+  }) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: AppColors.background(context).opaque(0.1),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: AppColors.text(context).opaque(0.1),
+          width: 1,
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(
+                icon,
+                size: 16,
+                color: AppColors.cardTitle(context),
+              ),
+              const SizedBox(width: 8),
+              Text(
+                title,
+                style: TextStyle(
+                  fontSize: MediaQuery.textScalerOf(context).scale(12),
+                  fontWeight: FontWeight.w500,
+                  color: AppColors.text(context).opaque(0.7),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Text(
+            content,
+            style: TextStyle(
+              fontSize: MediaQuery.textScalerOf(context).scale(14),
+              fontWeight: FontWeight.w400,
+              color: AppColors.text(context),
+              height: 1.4,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget transactionDetailsWidget(List<Widget> transactionDetails) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          AppLocalizations.of(context)!.translate('upcoming_funds'),
+          style: TextStyle(
+            fontSize: MediaQuery.textScalerOf(context).scale(12),
+            fontWeight: FontWeight.bold,
+            color: AppColors.text(context),
+          ),
+        ),
+        const SizedBox(height: 4),
+        ...transactionDetails,
+      ],
+    );
+  }
+
+  Widget backupTransaction(int index) {
+    return GestureDetector(
+      onTap: () async {
+        final rootContext = context;
+
+        try {
+          final singleWallet =
+              await walletService.createOrRestoreWallet(mnemonic);
+
+          final recipient = singleWallet
+              .peekAddress(KeychainKind.external_, 0)
+              .address
+              .toString();
+
+          int backupSpendable = 0;
+
+          for (var utxo in utxos) {
+            final status = utxo['status'];
+            final confirmed = status != null && status['confirmed'] == true;
+
+            if (confirmed) {
+              backupSpendable += int.parse(utxo['value'].toString());
+
+              continue;
+            }
+          }
+
+          final shouldContinue = await showDialog<bool>(
+            context: rootContext,
+            builder: (ctx) => AlertDialog(
+              backgroundColor: AppColors.dialog(context),
+              title: const Text("Confirm Backup Transaction"),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    "You are about to create and sign a backup transaction with the following details:",
+                  ),
+                  const SizedBox(height: 12),
+                  Text(
+                    "Destination Address:\n$recipient",
+                    style: const TextStyle(fontWeight: FontWeight.bold),
+                  ),
+                  const SizedBox(height: 12),
+                  Text(
+                    "This transaction will be signed using the 1-of-N timelock path (older/after).\n\n"
+                    "You can broadcast this transaction later using Bitcoin Core, or other blockchain explorers.",
+                  ),
+                ],
+              ),
+              actions: [
+                TextButton(
+                  child: const Text("Cancel"),
+                  onPressed: () => Navigator.of(ctx).pop(false),
+                ),
+                ElevatedButton(
+                  child: const Text("Continue"),
+                  onPressed: () => Navigator.of(ctx).pop(true),
+                ),
+              ],
+            ),
+          );
+
+          // Bail out if user cancels
+          if (shouldContinue != true) return;
+
+          // print(recipient);
+          // print('totalSpendable: $totalSpendable');
+
+          DialogHelper.showLoadingDialog(rootContext);
+
+          final result = await walletService.createBackupTx(
+            descriptor.toString(),
+            mnemonic,
+            recipient,
+            backupSpendable,
+            index,
+            avBalance,
+            spendingPaths: mySpendingPaths,
+            isSendAllBalance: true,
+          );
+
+          // print('Rezuldado');
+          // print(result);
+
+          final finalResult = await walletService.createBackupTx(
+            descriptor.toString(),
+            mnemonic,
+            recipient,
+            int.parse(result.toString()),
+            index,
+            avBalance,
+            spendingPaths: mySpendingPaths,
+          );
+
+          // print('RezuldadoFinal');
+
+          Navigator.of(rootContext, rootNavigator: true).pop();
+
+          sendTxHelper.showHEXDialog(
+            finalResult.toString(),
+            rootContext,
+          );
+        } catch (e) {
+          NotificationHelper.showError(
+            context,
+            message: 'Error: $e',
+          );
+        }
+
+        // print(finalResult);
+      },
+      child: Container(
+        padding: const EdgeInsets.all(8),
+        decoration: BoxDecoration(
+          color: AppColors.icon(context).opaque(0.1),
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Icon(
+          Icons.backup,
+          color: AppColors.icon(context),
+          size: 22,
+        ),
+      ),
+    );
+  }
+
+  Widget spendingPathLabel(String timelockType, dynamic timelock) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+      decoration: BoxDecoration(
+        color: AppColors.cardTitle(context).opaque(0.15),
+        borderRadius: BorderRadius.circular(30),
+        border: Border.all(
+          color: AppColors.cardTitle(context).opaque(0.2),
+          width: 1,
+        ),
+      ),
+      child: Text(
+        timelockType == 'older'
+            ? '${AppLocalizations.of(context)!.translate('rel_timelock')}\n$timelock ${AppLocalizations.of(context)!.translate('blocks')}'
+            : timelockType == 'after'
+                ? '${AppLocalizations.of(context)!.translate('abs_timelock')}\n$timelock ${AppLocalizations.of(context)!.translate('height')}'
+                : 'MULTISIG',
+        style: TextStyle(
+          fontSize: MediaQuery.textScalerOf(context).scale(13),
+          fontWeight: FontWeight.w600,
+          color: AppColors.cardTitle(context),
+        ),
+      ),
+    );
+  }
+
+  Widget indexBadge(
+      Map<String, dynamic> path, List<String> pathAliases, int totalSpendable) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 5),
+      decoration: BoxDecoration(
+        color: AppColors.cardTitle(context),
+        borderRadius: BorderRadius.circular(30),
+        boxShadow: [
+          BoxShadow(
+            color: AppColors.cardTitle(context).opaque(0.3),
+            blurRadius: 8,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(
+            totalSpendable > 0
+                ? Icons.lock_open_rounded
+                : Icons.lock_clock_rounded,
+            size: 14,
+            color: AppColors.gradient(context),
+          ),
+          const SizedBox(width: 4),
+          Text(
+            '${path['threshold']}/${pathAliases.length}',
+            style: TextStyle(
+              color: AppColors.gradient(context),
+              fontSize: MediaQuery.textScalerOf(context).scale(12),
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+        ],
+      ),
     );
   }
 
@@ -811,7 +1124,7 @@ class WalletSpendingPathHelpers {
               return RichText(
                 text: TextSpan(
                   style: TextStyle(
-                    fontSize: 14,
+                    fontSize: MediaQuery.textScalerOf(context).scale(14),
                     fontWeight: FontWeight.normal,
                     color: AppColors.text(context),
                   ),
@@ -820,7 +1133,7 @@ class WalletSpendingPathHelpers {
                       text:
                           "${AppLocalizations.of(rootContext)!.translate('value')}: ",
                       style: TextStyle(
-                        fontSize: 14,
+                        fontSize: MediaQuery.textScalerOf(context).scale(14),
                         fontWeight: FontWeight.bold,
                         color: AppColors.cardTitle(context),
                       ),
@@ -871,7 +1184,7 @@ class WalletSpendingPathHelpers {
             return RichText(
               text: TextSpan(
                 style: TextStyle(
-                  fontSize: 12,
+                  fontSize: MediaQuery.textScalerOf(context).scale(12),
                   color: AppColors.text(context),
                 ),
                 children: [
@@ -942,7 +1255,7 @@ class WalletSpendingPathHelpers {
                           ? '${AppLocalizations.of(context)!.translate('abs_timelock')}: $timelock ${AppLocalizations.of(context)!.translate('height')}'
                           : 'MULTISIG',
                   style: TextStyle(
-                    fontSize: 16,
+                    fontSize: MediaQuery.textScalerOf(context).scale(16),
                     color: AppColors.cardTitle(context),
                     fontWeight: FontWeight.bold,
                   ),
@@ -951,7 +1264,8 @@ class WalletSpendingPathHelpers {
                     ? RichText(
                         text: TextSpan(
                           style: TextStyle(
-                            fontSize: 14,
+                            fontSize:
+                                MediaQuery.textScalerOf(context).scale(14),
                             fontWeight: FontWeight.normal,
                             color: AppColors.text(context),
                           ),
@@ -960,7 +1274,8 @@ class WalletSpendingPathHelpers {
                               text:
                                   "${AppLocalizations.of(rootContext)!.translate('threshold')}: ",
                               style: TextStyle(
-                                fontSize: 14,
+                                fontSize:
+                                    MediaQuery.textScalerOf(context).scale(14),
                                 fontWeight: FontWeight.bold,
                                 color: AppColors.cardTitle(context),
                               ),
@@ -985,7 +1300,8 @@ class WalletSpendingPathHelpers {
                                   ? ""
                                   : ", "), // Remove comma for last item
                           style: TextStyle(
-                            fontSize: 14,
+                            fontSize:
+                                MediaQuery.textScalerOf(context).scale(14),
                             color: AppColors.text(context),
                             fontWeight: pathAliases[i] == myAlias
                                 ? FontWeight.bold
@@ -998,7 +1314,7 @@ class WalletSpendingPathHelpers {
                 Text(
                   "${AppLocalizations.of(rootContext)!.translate('transaction_info')}: ",
                   style: TextStyle(
-                    fontSize: 14,
+                    fontSize: MediaQuery.textScalerOf(context).scale(14),
                     fontWeight: FontWeight.bold,
                     color: AppColors.cardTitle(context),
                   ),
@@ -1009,7 +1325,7 @@ class WalletSpendingPathHelpers {
                         AppLocalizations.of(rootContext)!
                             .translate('no_transactions_available'),
                         style: TextStyle(
-                          fontSize: 14,
+                          fontSize: MediaQuery.textScalerOf(context).scale(14),
                           color: AppColors.error(context),
                         ),
                       ),

@@ -1,5 +1,5 @@
 import 'dart:convert';
-import 'package:bdk_flutter/bdk_flutter.dart';
+import 'package:bdk_dart/bdk.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_wallet/languages/app_localizations.dart';
 import 'package:flutter_wallet/services/utilities_service.dart';
@@ -11,6 +11,7 @@ import 'package:flutter_wallet/widget_helpers/assistant_widget.dart';
 import 'package:flutter_wallet/widget_helpers/custom_bottom_sheet.dart';
 import 'package:flutter_wallet/widget_helpers/dialog_helper.dart';
 import 'package:hive_flutter/hive_flutter.dart';
+import 'package:line_icons/line_icons.dart';
 import 'package:provider/provider.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:flutter_wallet/utilities/app_colors.dart';
@@ -255,7 +256,7 @@ class BaseScaffoldState extends State<BaseScaffold> {
                       Text(
                         "${AppLocalizations.of(localizationContext)!.translate('pub_key')}: ${entry['publicKey']}",
                         style: TextStyle(
-                          fontSize: 14,
+                          fontSize: MediaQuery.textScalerOf(context).scale(14),
                           color: AppColors.text(context),
                         ),
                         overflow: TextOverflow.ellipsis,
@@ -447,8 +448,8 @@ class BaseScaffoldState extends State<BaseScaffold> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             widget.title,
-            if (settingsProvider
-                .isTestnet) // Show the Testnet banner if `isTestnet` is true
+            // Show the Testnet banner if `isTestnet` is true
+            if (settingsProvider.isTestnet)
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
                 decoration: BoxDecoration(
@@ -462,7 +463,8 @@ class BaseScaffoldState extends State<BaseScaffold> {
                 child: Text(
                   AppLocalizations.of(context)!.translate('network_banner'),
                   style: TextStyle(
-                    fontSize: 16, // Bigger font
+                    fontSize: 16 *
+                        MediaQuery.of(context).textScaleFactor, // Bigger font
                     fontWeight: FontWeight.bold,
                     color: AppColors.error(context), // High contrast color
                   ),
@@ -634,11 +636,22 @@ class BaseScaffoldState extends State<BaseScaffold> {
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          GestureDetector(
-            child: Icon(Icons.settings),
-            onTap: () {
-              Navigator.of(context).pushNamed('/settings');
-            },
+          Row(
+            children: [
+              GestureDetector(
+                child: Icon(Icons.settings),
+                onTap: () {
+                  Navigator.of(context).pushNamed('/settings');
+                },
+              ),
+              const SizedBox(width: 10),
+              GestureDetector(
+                child: Icon(LineIcons.donate),
+                onTap: () {
+                  Navigator.of(context).pushNamed('/donate_page');
+                },
+              ),
+            ],
           ),
           const SizedBox(height: 10),
           Flexible(
@@ -647,7 +660,7 @@ class BaseScaffoldState extends State<BaseScaffold> {
               AppLocalizations.of(context)!.translate('welcome'),
               style: TextStyle(
                 color: AppColors.text(context),
-                fontSize: 20,
+                fontSize: MediaQuery.textScalerOf(context).scale(20),
                 fontWeight: FontWeight.bold,
               ),
             ),
@@ -658,7 +671,7 @@ class BaseScaffoldState extends State<BaseScaffold> {
               AppLocalizations.of(context)!.translate('welcoming_description'),
               style: TextStyle(
                 color: AppColors.text(context).opaque(0.8),
-                fontSize: 14,
+                fontSize: MediaQuery.textScalerOf(context).scale(14),
               ),
             ),
           ),
@@ -668,7 +681,7 @@ class BaseScaffoldState extends State<BaseScaffold> {
               '${AppLocalizations.of(context)!.translate('version')}: $_version',
               style: TextStyle(
                 color: AppColors.text(context),
-                fontSize: 16,
+                fontSize: MediaQuery.textScalerOf(context).scale(16),
               ),
             ),
           ),
@@ -693,7 +706,7 @@ class BaseScaffoldState extends State<BaseScaffold> {
         title: Text(
           AppLocalizations.of(context)!.translate('personal_wallet'),
           style: TextStyle(
-            fontSize: 16,
+            fontSize: MediaQuery.textScalerOf(context).scale(16),
             fontWeight: FontWeight.w600,
             color: AppColors.text(context),
           ),
@@ -719,11 +732,14 @@ class BaseScaffoldState extends State<BaseScaffold> {
 
           // Split the composite key into mnemonic and descriptor name
           final keyParts = compositeKey.split('_descriptor');
-          final mnemonic =
-              keyParts.isNotEmpty ? keyParts[0] : 'Unknown Mnemonic';
+          var mnemonic = keyParts.isNotEmpty ? keyParts[0] : 'Unknown Mnemonic';
           String descriptorName = keyParts.length > 1
               ? keyParts[1].replaceFirst('_', '')
               : 'Unnamed Descriptor';
+
+          if (mnemonic.toString().startsWith('read')) {
+            mnemonic = null;
+          }
 
           // print('descriptorName: $compositeKey');
 
@@ -748,7 +764,7 @@ class BaseScaffoldState extends State<BaseScaffold> {
 
           sharedWalletCards.add(
             FutureBuilder<DescriptorPublicKey?>(
-              future: walletService.getpubkey(pubKeyFutures, mnemonic),
+              future: walletService.getPubKey(pubKeyFutures, mnemonic),
               builder: (context, snapshot) {
                 if (snapshot.connectionState == ConnectionState.waiting) {
                   return const CircularProgressIndicator(); // Show a loader while waiting
@@ -756,25 +772,32 @@ class BaseScaffoldState extends State<BaseScaffold> {
                   return const Text('Error fetching public key');
                 }
 
+                String displayAlias;
                 final pubKey = snapshot.data;
+
                 if (pubKey == null) {
-                  return const Text('Public key not found');
+                  displayAlias = 'readOnly';
+                } else {
+                  // Extract the content inside square brackets
+                  final RegExp regex = RegExp(r'\[([^\]]+)\]');
+                  final Match? match = regex.firstMatch(pubKey.toString());
+
+                  // Handle case where match might be null
+                  if (match != null) {
+                    final String targetFingerprint =
+                        match.group(1)!.split('/')[0];
+
+                    final matchingAliasEntry = pubKeysAlias.firstWhere(
+                      (entry) =>
+                          entry['publicKey']!.contains(targetFingerprint),
+                      orElse: () => {'alias': 'Unknown Alias'},
+                    );
+
+                    displayAlias = matchingAliasEntry['alias'] ?? 'No Alias';
+                  } else {
+                    displayAlias = 'Unknown';
+                  }
                 }
-
-                // Extract the content inside square brackets
-                final RegExp regex = RegExp(r'\[([^\]]+)\]');
-                final Match? match = regex.firstMatch(pubKey.asString());
-
-                final String targetFingerprint = match!.group(1)!.split('/')[0];
-
-                final matchingAliasEntry = pubKeysAlias.firstWhere(
-                  (entry) => entry['publicKey']!.contains(targetFingerprint),
-                  orElse: () => {
-                    'alias': 'Unknown Alias'
-                  }, // Fallback if no match is found
-                );
-
-                final displayAlias = matchingAliasEntry['alias'] ?? 'No Alias';
 
                 return Card(
                   elevation: 6,
@@ -791,7 +814,7 @@ class BaseScaffoldState extends State<BaseScaffold> {
                     title: Text(
                       '${descriptorName}_$displayAlias',
                       style: TextStyle(
-                        fontSize: 16,
+                        fontSize: MediaQuery.textScalerOf(context).scale(16),
                         fontWeight: FontWeight.w600,
                         color: AppColors.text(context),
                       ),
@@ -799,7 +822,7 @@ class BaseScaffoldState extends State<BaseScaffold> {
                     subtitle: Text(
                       descriptor,
                       style: TextStyle(
-                        fontSize: 12,
+                        fontSize: MediaQuery.textScalerOf(context).scale(12),
                         color: AppColors.text(context),
                       ),
                       overflow: TextOverflow.ellipsis,
@@ -864,8 +887,8 @@ class BaseScaffoldState extends State<BaseScaffold> {
   }
 
   void _log(String msg) {
-    // Using debugPrint avoids truncation of long lines in Flutter logs.
-    debugPrint('[EditAliases ${DateTime.now().toIso8601String()}] $msg');
+    // Using print avoids truncation of long lines in Flutter logs.
+    print('[EditAliases ${DateTime.now().toIso8601String()}] $msg');
   }
 
   Widget _buildCreateSharedWalletTile(BuildContext context) {
@@ -884,7 +907,7 @@ class BaseScaffoldState extends State<BaseScaffold> {
         title: Text(
           AppLocalizations.of(context)!.translate('create_shared_wallet'),
           style: TextStyle(
-              fontSize: 16,
+              fontSize: MediaQuery.textScalerOf(context).scale(16),
               fontWeight: FontWeight.w600,
               color: AppColors.text(context)),
         ),

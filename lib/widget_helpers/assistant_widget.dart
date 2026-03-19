@@ -150,7 +150,7 @@ class AssistantWidgetState extends State<AssistantWidget>
                     textAlign: TextAlign.center,
                     style: TextStyle(
                       color: AppColors.text(widget.context),
-                      fontSize: 14,
+                      fontSize: MediaQuery.textScalerOf(context).scale(14),
                       decoration: TextDecoration.none,
                     ),
                   ),

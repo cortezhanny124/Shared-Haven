@@ -1,6 +1,6 @@
 import 'dart:async';
 
-import 'package:bdk_flutter/bdk_flutter.dart';
+import 'package:bdk_dart/bdk.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -315,7 +315,7 @@ class ImportWalletPageState extends State<ImportWalletPage> {
         Text(
           statusText,
           style: TextStyle(
-            fontSize: 16,
+            fontSize: MediaQuery.textScalerOf(context).scale(16),
             fontWeight: FontWeight.bold,
             color: AppColors.text(context),
           ),
@@ -450,7 +450,7 @@ class ImportWalletPageState extends State<ImportWalletPage> {
                 ),
                 style: TextStyle(
                   color: AppColors.text(context),
-                  fontSize: 14,
+                  fontSize: MediaQuery.textScalerOf(context).scale(14),
                 ),
                 onChanged: (v) => _onWordChanged(i, v),
                 onSubmitted: (_) => _focusNext(i),

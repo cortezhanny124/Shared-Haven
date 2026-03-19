@@ -93,7 +93,7 @@ class SettingsPageState extends State<SettingsPage> {
                     AppLocalizations.of(context)!.translate('settings_message'),
                     textAlign: TextAlign.center,
                     style: TextStyle(
-                      fontSize: 16,
+                      fontSize: MediaQuery.textScalerOf(context).scale(16),
                       color: AppColors.text(context),
                       fontWeight: FontWeight.w500,
                     ),
@@ -105,14 +105,14 @@ class SettingsPageState extends State<SettingsPage> {
                   Text(
                     AppLocalizations.of(context)!.translate('currency'),
                     style: TextStyle(
-                      fontSize: 18,
+                      fontSize: MediaQuery.textScalerOf(context).scale(18),
                       fontWeight: FontWeight.bold,
                       color: AppColors.cardTitle(context),
                     ),
                   ),
                   const SizedBox(height: 16),
                   DropdownButtonFormField<String>(
-                    value: settingsProvider.currency,
+                    initialValue: settingsProvider.currency,
                     items: currencies.map((currency) {
                       return DropdownMenuItem(
                         value: currency,
@@ -155,7 +155,7 @@ class SettingsPageState extends State<SettingsPage> {
                   Text(
                     AppLocalizations.of(context)!.translate('language'),
                     style: TextStyle(
-                      fontSize: 18,
+                      fontSize: MediaQuery.textScalerOf(context).scale(18),
                       fontWeight: FontWeight.bold,
                       color: AppColors.cardTitle(context),
                     ),
@@ -163,7 +163,7 @@ class SettingsPageState extends State<SettingsPage> {
 
                   const SizedBox(height: 20),
                   DropdownButtonFormField<String>(
-                    value: settingsProvider.languageCode,
+                    initialValue: settingsProvider.languageCode,
                     items: languages.map((language) {
                       return DropdownMenuItem(
                         value: language,

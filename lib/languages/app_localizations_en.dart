@@ -200,7 +200,7 @@ const Map<String, String> localizedStringsEn = {
   'immediately_spend': 'You ({x}) can immediately spend',
   'cannot_spend': 'You ({x}) cannot spend any sats at the moment',
   'threshold_required':
-      '\n\nA threshold of {x} out of {y} is required. \nYou must coordinate with these keys',
+      '\nA threshold of {x} out of {y} is required. \nYou must coordinate with these keys',
   'spend_alone':
       '\nYou can spend alone. \nThese other keys can also spend independently: ',
   'spend_together': '\nYou must spend together with: ',

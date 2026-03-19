@@ -1,4 +1,4 @@
-import 'package:bdk_flutter/bdk_flutter.dart';
+import 'package:bdk_dart/bdk.dart';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -28,7 +28,7 @@ class SettingsProvider with ChangeNotifier {
   ThemeData get themeData => _themeData;
   bool get isDarkMode => _isDarkMode;
 
-  Network _network = Network.testnet;
+  Network _network = Network.bitcoin;
 
   Network get network => _network;
 
@@ -55,12 +55,8 @@ class SettingsProvider with ChangeNotifier {
       } else {
         _network = Network.testnet;
       }
-    }
-    // else if (isTest) {
-    //   _network = Network.testnet;
-    // }
-    else {
-      _network = Network.testnet;
+    } else {
+      _network = Network.bitcoin;
     }
 
     notifyListeners(); // Ensure UI updates after loading

@@ -1,7 +1,10 @@
+// ignore_for_file: unused_local_variable
+
 import 'dart:convert';
+import 'dart:isolate';
 import 'dart:math';
 import 'dart:typed_data';
-import 'package:bdk_flutter/bdk_flutter.dart';
+import 'package:bdk_dart/bdk.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_wallet/exceptions/validation_result.dart';
@@ -17,67 +20,105 @@ import 'package:collection/collection.dart';
 
 /// WalletService Class
 ///
-/// This class provides a comprehensive suite of tools for managing Bitcoin wallets
-/// using the `bdk_flutter` library. It supports both single and shared wallet functionalities,
-/// descriptor-based wallet management, transaction creation, and interaction with blockchain
-/// APIs like Mempool.space. The class also handles wallet synchronization, balance retrieval,
-/// and multi-signature (multisig) wallets.
+/// A comprehensive service class for managing Bitcoin wallets using the BDK (Bitcoin Dev Kit)
+/// library. This service handles both single-signature and multi-signature wallet operations,
+/// descriptor-based wallet management, transaction creation, blockchain synchronization,
+/// and interaction with various blockchain APIs (Electrum, Esplora, Mempool.space).
+///
+/// The class supports multiple Bitcoin networks (testnet/mainnet) and provides extensive
+/// functionality for wallet creation, transaction building, signing, broadcasting, and
+/// UTXO management. It also includes utilities for multi-signature wallets with timelock
+/// conditions and policy-based spending paths.
+///
+/// Key Features:
+/// - Single and multi-signature wallet creation/restoration
+/// - Descriptor-based wallet management with BIP84 support
+/// - Transaction building with custom fee rates and change addresses
+/// - PSBT (Partially Signed Bitcoin Transaction) creation and signing
+/// - Multi-signature support with timelock conditions (CLTV/CSV)
+/// - Blockchain synchronization via Electrum servers
+/// - UTXO management and balance tracking
+/// - Fee rate estimation from multiple sources
+/// - Transaction history and status tracking
+/// - Offline transaction creation support
 ///
 /// **INDEX**
 ///
-/// **Common Methods**
-/// - **`isValidDescriptor`**: Validates a wallet descriptor.
-/// - **`getBalance`**: Retrieves the total balance from a wallet.
-/// - **`getLedgerBalance`**: Fetches the ledger balance for a given address.
-/// - **`getAvailableBalance`**: Fetches the available balance for a given address.
-/// - **`loadSavedWallet`**: Restores a wallet using a saved mnemonic.
-/// - **`syncWallet`**: Synchronizes a wallet with the blockchain.
-/// - **`getAddress`**: Retrieves the current receiving address from a wallet.
-/// - **`blockchainInit`**: Initializes a connection to the blockchain via an Electrum server.
-/// - **`fetchCurrentBlockHeight`**: Fetches the current block height from the blockchain.
-/// - **`calculateRemainingTimeInSeconds`**: Calculates the remaining time for a specific number of blocks.
-/// - **`formatTime`**: Formats a duration in seconds into a human-readable format.
-/// - **`getUtxos`**: Fetches the unspent transaction outputs (UTXOs) for a given address.
+/// **Initialization & Connection**
+/// - `getWorkingEndpoint`: Finds a working blockchain API endpoint
+/// - `get baseUrl`: Returns the base URL for blockchain API calls
+/// - `get electrumServers`: Returns Electrum servers based on network
+/// - `blockchainInit`: Initializes connection to blockchain via Electrum
+/// - `syncWallet`: Synchronizes wallet with the blockchain
 ///
-/// **Single Wallet**
-/// - **`createOrRestoreWallet`**: Creates or restores a single-user wallet from a mnemonic.
-/// - **`calculateSendAllBalance`**: Computes the maximum amount that can be sent after deducting fees.
-/// - **`sendSingleTx`**: Creates, signs, and broadcasts a single-user transaction.
+/// **Wallet Creation & Management**
+/// - `createOrRestoreWallet`: Creates or restores a single-signature wallet
+/// - `createSharedWallet`: Creates a multi-signature wallet from descriptor
+/// - `loadSavedWallet`: Loads a previously saved wallet from storage
+/// - `checkMnemonic`: Validates if a mnemonic can create a valid wallet
+/// - `getDescriptors`: Generates BIP84 descriptors from mnemonic
+/// - `isValidDescriptor`: Validates a wallet descriptor against a public key
+/// - `saveLocalData`: Persists wallet data to local storage
 ///
-/// **Shared Wallet**
-/// - **`createSharedWallet`**: Creates a wallet for multi-signature use.
-/// - **`createWalletDescriptor`**: Generates a descriptor for shared wallets with time-lock and multisig conditions.
-/// - **`createPartialTx`**: Creates a partially signed Bitcoin transaction (PSBT) for shared wallets.
-/// - **`signBroadcastTx`**: Signs a PSBT with the second user and broadcasts it to the blockchain.
+/// **Balance & Address Operations**
+/// - `getBalance`: Retrieves total wallet balance
+/// - `getBitcoinBalance`: Fetches confirmed and pending balances
+/// - `getAddress`: Gets current receiving address
+/// - `getAddressFromScriptOutput`: Extracts address from transaction output
+/// - `getAddressFromScriptInput`: Extracts address from transaction input
+/// - `validateAddress`: Validates a Bitcoin address format
+/// - `areEqualAddresses`: Checks if all outputs have same address
 ///
-/// **Utilities**
-/// - **`printInChunks`**: Prints long strings in chunks for readability.
-/// - **`printPrettyJson`**: Pretty-prints JSON strings for debugging.
-/// - **`checkCondition`**: Checks whether a specific condition is met for UTXO spending.
+/// **Transaction Operations**
+/// - `sendSingleTx`: Creates, signs, and broadcasts single-signature transaction
+/// - `createPartialTx`: Creates a PSBT for multi-signature transaction
+/// - `signBroadcastTx`: Signs a PSBT and broadcasts to network
+/// - `createBackupTx`: Creates backup transaction (similar to createPartialTx)
+/// - `calculateSendAllBalance`: Calculates maximum spendable amount after fees
+/// - `getUtxos`: Fetches UTXOs with confirmation status
+/// - `checkCondition`: Checks if UTXOs meet spending conditions
 ///
-/// **Blockchain Interaction**
-/// - **`getFeeRate`**: Retrieves the current recommended fee rate for transactions.
-/// - **`getTransactions`**: Fetches transaction history for a given address.
+/// **Fee Management**
+/// - `getFeeRate`: Gets current recommended fee rate
+/// - `fetchRecommendedFees`: Fetches complete fee estimates (fastest, half-hour, hour)
+///
+/// **Blockchain Data**
+/// - `fetchCurrentBlockHeight`: Gets current blockchain height
+/// - `fetchBlockTimestamp`: Gets timestamp for a specific block
+/// - `getTransactions`: Fetches wallet transaction history
+/// - `calculateRemainingTimeInSeconds`: Calculates time for block confirmations
+/// - `formatTime`: Formats duration in human-readable form
+/// - `sortTransactionsByConfirmations`: Sorts transactions by confirmation count
 ///
 /// **Multi-signature Utilities**
-/// - **`replacePubKeyWithPrivKeyMultiSig`**: Replaces public keys with private keys in a multisig descriptor.
-/// - **`replacePubKeyWithPrivKeyOlder`**: Replaces public keys with private keys in timelocked descriptors.
-/// - **`extractOlderWithPrivateKey`**: Extracts the "older" value from a descriptor and associates it with private keys.
+/// - `replacePubKeyWithPrivKeyMultiSig`: Replaces public keys with private in multisig descriptor
+/// - `replacePubKeyWithPrivKeyOlder`: Replaces public keys with private in timelocked descriptors
+/// - `extractOlderWithPrivateKey`: Extracts "older" value with private keys
+/// - `deriveDescriptorKeys`: Derives secret and public keys from mnemonic
+/// - `makeChangeDescriptor`: Creates change descriptor from receive descriptor
+/// - `extractPublicKeysWithAliases`: Extracts public keys with their aliases
+/// - `getAliasesFromFingerprint`: Gets aliases from fingerprints
 ///
-/// **Descriptor Key Derivation**
-/// - **`deriveDescriptorKeys`**: Derives descriptor secret and public keys based on a derivation path and mnemonic.
+/// **Policy & Path Extraction**
+/// - `extractAllPathsToFingerprint`: Extracts all policy paths for a fingerprint
+/// - `extractDataByFingerprint`: Extracts data related to a specific fingerprint
+/// - `extractAllPaths`: Extracts all policy paths from wallet descriptor
+/// - `extractSpendingPathFromPsbt`: Determines spending path used in PSBT
+/// - `extractSignersFromPsbt`: Identifies signers from PSBT
 ///
-/// **Policy and Path Extraction**
-/// - **`extractAllPathsToFingerprint`**: Extracts all policy paths to a specific fingerprint.
-/// - **`extractDataByFingerprint`**: Extracts data related to a specific fingerprint from the wallet policy.
-/// - **`extractAllPaths`**: Extracts all policy paths from a wallet descriptor.
-///
-/// **Data Storage**
-/// - **`saveLocalData`**: Saves wallet-related data, such as balances and transactions, to local storage.
+/// **Utilities & Helpers**
+/// - `printInChunks`: Prints long strings in manageable chunks
+/// - `printPrettyJson`: Pretty-prints JSON for debugging
+/// - `printPsbtJson`: Pretty-prints PSBT JSON structure
+/// - `generateRandomName`: Generates random wallet name
+/// - `formatDuration`: Formats duration for display
+/// - `convertSatoshisToCurrency`: Converts satoshis to fiat currency
+/// - `stripChecksum`: Removes checksum from descriptor
+/// - `_isImmediateMultisig`: Checks if path is immediate multisig
+/// - `_pathAt`: Safely gets path at index
 
 const int avgBlockTime = 600;
-
-// const bool isTest = true;
+bool oldCase = false;
 
 class WalletService extends ChangeNotifier {
   final WalletStorageService _walletStorageService = WalletStorageService();
@@ -86,7 +127,8 @@ class WalletService extends ChangeNotifier {
   WalletService(this.settingsProvider);
 
   late Wallet wallet;
-  late Blockchain blockchain;
+  late Persister persister;
+  // late Blockchain blockchain;
 
   final List<String> testnetEndpoints = [
     // 'https://mempool.space/testnet4/api',
@@ -126,7 +168,7 @@ class WalletService extends ChangeNotifier {
     return await getWorkingEndpoint(settingsProvider.network);
   }
 
-  // TODO: TESTNET3
+  // TESTNET3
   List<String> get electrumServers {
     switch (settingsProvider.network) {
       case Network.testnet:
@@ -138,7 +180,7 @@ class WalletService extends ChangeNotifier {
     }
   }
 
-  // TODO: TESTNET4
+  // TESTNET4
   // List<String> get electrumServers {
   //   switch (settingsProvider.network) {
   //     case Network.testnet:
@@ -167,7 +209,7 @@ class WalletService extends ChangeNotifier {
 
   Future<ValidationResult> isValidDescriptor(
     String descriptorStr,
-    String publicKey,
+    String? publicKey,
     BuildContext context,
   ) async {
     try {
@@ -176,38 +218,34 @@ class WalletService extends ChangeNotifier {
       // print('🧾 Descriptor (full):');
       // printInChunks(descriptorStr);
 
-      final last3 = publicKey.substring(0, publicKey.length - 3);
-      // print('🔍 Checking if descriptor contains pubkey: "$last3"');
+      if (publicKey != null) {
+        final last3 = publicKey.substring(0, publicKey.length - 3);
+        // print('🔍 Checking if descriptor contains pubkey: "$last3"');
 
-      if (descriptorStr.contains(last3)) {
-        // print('✅ Match found. Attempting to create descriptor...');
+        if (descriptorStr.contains(last3)) {
+          // print('💾 Attempting to create wallet in memory...');
+          await createSharedWallet(descriptorStr);
+          // print('🎉 Wallet creation successful.');
 
-        final descriptor = await Descriptor.create(
-          descriptor: descriptorStr,
-          network: settingsProvider.network,
-        );
-
-        // print('🏗️ Descriptor created successfully.');
-
-        // print('💾 Attempting to create wallet in memory...');
-        await Wallet.create(
-          descriptor: descriptor,
-          network: settingsProvider.network,
-          databaseConfig: const DatabaseConfig.memory(),
-        );
-        // print('🎉 Wallet creation successful.');
-
-        return ValidationResult(isValid: true);
-      } else {
-        // print('❌ Descriptor does NOT contain expected public key fragment.');
-        return ValidationResult(
-          isValid: false,
-          errorMessage: AppLocalizations.of(
-            context,
-          )!
-              .translate('error_public_key_not_contained'),
-        );
+          return ValidationResult(isValid: true);
+        } else {
+          // print('❌ Descriptor does NOT contain expected public key fragment.');
+          return ValidationResult(
+            isValid: false,
+            errorMessage: AppLocalizations.of(
+              context,
+            )!
+                .translate('error_public_key_not_contained'),
+          );
+        }
       }
+
+      print('ciao');
+
+      await createSharedWallet(descriptorStr);
+      // print('🎉 Wallet creation successful.');
+
+      return ValidationResult(isValid: true);
     } catch (e) {
       print('💥 Error during descriptor/wallet creation: $e');
       return ValidationResult(
@@ -221,24 +259,28 @@ class WalletService extends ChangeNotifier {
   }
 
   BigInt getBalance(Wallet wallet) {
-    // await syncWallet(wallet);
-    Balance balance = wallet.getBalance();
+    Balance balance = wallet.balance();
 
-    // print(balance.total);
+    // print(balance.total.toSat());
 
-    return balance.total;
+    return BigInt.from(balance.total.toSat());
   }
 
   Future<bool> checkMnemonic(String mnemonic) async {
     try {
-      final descriptors = await getDescriptors(mnemonic);
+      final descriptors = getDescriptors(mnemonic);
 
-      await Wallet.create(
-        descriptor: descriptors[0],
-        changeDescriptor: descriptors[1],
-        network: settingsProvider.network,
-        databaseConfig: const DatabaseConfig.memory(),
+      persister = Persister.newInMemory();
+
+      wallet = Wallet(
+        descriptors[0],
+        descriptors[1],
+        settingsProvider.network,
+        persister,
+        100,
       );
+
+      wallet.persist(persister);
 
       return true;
     } catch (e) {
@@ -266,11 +308,12 @@ class WalletService extends ChangeNotifier {
 
   Future<void> syncWallet(Wallet wallet) async {
     try {
-      await blockchainInit(); // Ensure blockchain is initialized before usage
+      await blockchainInit(
+        wallet: wallet,
+        persister: persister,
+      ); // Ensure blockchain is initialized before usage
 
       // print('Blockchain initialized');
-
-      await wallet.sync(blockchain: blockchain);
     } catch (e) {
       throw Exception("Blockchain initialization failed: ${e.toString()}");
     }
@@ -279,30 +322,21 @@ class WalletService extends ChangeNotifier {
   String getAddress(Wallet wallet) {
     // await syncWallet(wallet);
 
-    var addressInfo = wallet.getAddress(
-      addressIndex: const AddressIndex //
-          .increase(),
-      // .peek(index: 0),
-    );
+    var addressInfo = wallet.revealNextAddress(KeychainKind.external_);
 
     // print('New Address generated: ${addressInfo.address.asString()}');
 
-    return addressInfo.address.asString();
+    return addressInfo.address.toString();
   }
 
   /// Fetches and calculates confirmed & pending balance
   Future<Map<String, int>> getBitcoinBalance(String address) async {
-    await syncWallet(wallet);
     try {
-      final int confirmedBalance = int.parse(
-        wallet.getBalance().spendable.toString(),
-      );
+      final int confirmedBalance = wallet.balance().trustedSpendable.toSat();
 
       // print('confirmedBalance: $confirmedBalance');
 
-      final int pendingBalance = int.parse(
-        wallet.getBalance().untrustedPending.toString(),
-      );
+      final int pendingBalance = wallet.balance().untrustedPending.toSat();
 
       // print('pendingBalance: $pendingBalance');
 
@@ -319,7 +353,7 @@ class WalletService extends ChangeNotifier {
   Future<int> calculateSendAllBalance({
     required String recipientAddress,
     required Wallet wallet,
-    required BigInt availableBalance,
+    required Amount availableBalance,
     required WalletService walletService,
     double? customFeeRate,
   }) async {
@@ -330,356 +364,271 @@ class WalletService extends ChangeNotifier {
       // print(feeRate);
       // print(availableBalance);
 
-      final recipient = await Address.fromString(
-        s: recipientAddress,
-        network: settingsProvider.network,
+      final recipient = Address(
+        recipientAddress,
+        settingsProvider.network,
       );
       final recipientScript = recipient.scriptPubkey();
 
       final txBuilder = TxBuilder();
 
-      await txBuilder
+      txBuilder
           .addRecipient(recipientScript, availableBalance)
-          .feeRate(feeRate)
+          .feeRate(FeeRate.fromSatPerVb(feeRate.toInt()))
           .finish(wallet);
 
-      return availableBalance
-          .toInt(); // If no exception occurs, return available balance
+      return availableBalance.toSat();
     } catch (e) {
       print(e);
       // Handle insufficient funds
 
-      if (e.toString().contains("InsufficientFundsException")) {
-        print(e);
-        final RegExp regex = RegExp(r'Needed: (\d+), Available: (\d+)');
+      if (e.toString().contains("Insufficient funds:")) {
+        // More flexible regex that extracts both BTC amounts
+        final RegExp regex =
+            RegExp(r'([\d.]+)\s*BTC\s+available.*?([\d.]+)\s*BTC\s+needed');
         final match = regex.firstMatch(e.toString());
+
         if (match != null) {
-          final int neededAmount = int.parse(match.group(1)!);
-          final int availableAmount = int.parse(match.group(2)!);
+          final double availableBTC = double.parse(match.group(1)!);
+          final double neededBTC = double.parse(match.group(2)!);
+
+          final int availableAmount = (availableBTC * 100000000).round();
+          final int neededAmount = (neededBTC * 100000000).round();
+
           final int fee = neededAmount - availableAmount;
-          final int sendAllBalance = availableBalance.toInt() - fee;
+          final int sendAllBalance = availableBalance.toSat() - fee;
 
           if (sendAllBalance > 0) {
-            return sendAllBalance; // Return adjusted send all balance
+            return sendAllBalance;
           } else {
             throw Exception('No balance available after fee deduction');
           }
         } else {
-          throw Exception('Failed to extract Needed amount from exception');
+          throw Exception(
+              'Failed to extract amounts from exception: ${e.toString()}');
         }
       } else {
-        rethrow; // Re-throw unhandled exceptions
+        rethrow;
       }
     }
   }
 
-  // Use the first available server in the list
-  Future<void> blockchainInit() async {
-    for (var url in electrumServers) {
+  Future<void> blockchainInit({
+    required Wallet wallet,
+    required Persister persister,
+  }) async {
+    // print('[SYNC] Starting blockchainInit...');
+    // print('[SYNC] Electrum servers list: $electrumServers');
+
+    for (final server in electrumServers) {
+      // print('[SYNC] Trying Electrum server: $server');
+
       try {
-        blockchain = await Blockchain.create(
-          config: BlockchainConfig.electrum(
-            config: ElectrumConfig(
-              url: url,
-              timeout: 5,
-              retry: 5,
-              stopGap: BigInt.from(10),
-              validateDomain: true,
-            ),
-          ),
+        // print('[SYNC] Creating ElectrumClient...');
+        // print('[SYNC] ElectrumClient created');
+
+        /**
+         * startFullScan() makes synchronous FFI calls into rust,
+         * so they block whatever dart thread they run on.
+         * If that's the main/UI isolate, your app freezes until the call returns.
+         * 
+         * Isolate.run() moves the heavy network + chain-scan work to a background isolate so the UI stays responsive.
+         */
+
+        final update = await Isolate.run(
+          () {
+            final client = ElectrumClient(server, null);
+            try {
+              // print('[SYNC] Trying Electrum server: $server');
+
+              final syncRequest = wallet.startFullScan().build();
+
+              final Update result = client.fullScan(
+                syncRequest,
+                50,
+                100,
+                true,
+              );
+
+              return result;
+            } finally {
+              client.dispose();
+            }
+          },
         );
-        // print("Connected to Electrum server: $url");
+
+        wallet.applyUpdate(update);
+
+        wallet.persist(persister);
+
         return;
-      } catch (e) {
-        print(
-          "Error: $e Failed to connect to Electrum server: $url, trying next...",
-        );
+      } catch (e, st) {
+        print('[SYNC][ERROR] Failed Electrum server $server');
+        print('[SYNC][ERROR] $e');
+        print('[SYNC][STACKTRACE]\n$st');
       }
     }
+
+    // print('[SYNC][FATAL] All Electrum servers failed');
     throw Exception("Failed to connect to any Electrum server.");
   }
 
-  Future<double> getFeeRate() async {
-    final String base = await baseUrl;
+  Future<List<Map<String, dynamic>>> getTransactions() async {
+    // print('[TX] Starting getTransactions()');
 
-    Uri join(String path) {
-      final b = base.endsWith('/') ? base.substring(0, base.length - 1) : base;
-      return Uri.parse('$b$path');
-    }
+    try {
+      final results = <Map<String, dynamic>>[];
 
-    final candidates = <Uri>[
-      // Attempt 1: mempool.space-compatible
-      join('/v1/fees/recommended'),
-      // Attempt 2: Blockstream-compatible
-      join('/fee-estimates'),
-    ];
+      // print('[TX] Fetching canonical transactions from wallet...');
+      final canonical = wallet.transactions();
 
-    for (final uri in candidates) {
-      try {
-        final response = await http.get(uri);
-        // print('[getFeeRate] GET $uri -> ${response.statusCode}');
+      for (final c in canonical) {
+        // print('[TX] Processing canonical tx...');
 
-        // print(response.body);
+        final transaction = c.transaction;
+        final chainPosition = c.chainPosition;
 
-        if (response.statusCode != 200) continue;
+        final txid = transaction.computeTxid();
+        // print('[TX] Computed txid: $txid');
 
-        final dynamic json = jsonDecode(response.body);
+        // Get transaction details including sent, received, and fee
+        final txDetails = wallet.txDetails(txid);
 
-        // Case A — mempool.space shape: { fastestFee, halfHourFee, hourFee }
-        if (json is Map && json.containsKey('halfHourFee')) {
-          final halfHour = (json['halfHourFee'] as num?)?.toDouble();
-          if (halfHour != null) return halfHour;
-        }
+        // Build transaction details map from the available data
+        final Map<String, dynamic> txMap = {
+          'txid': txid.toString(),
+          // 'transaction': transaction,
+          'confirmationTime':
+              _getConfirmationTimeFromChainPosition(chainPosition),
+          'sent': txDetails!.sent.toSat(),
+          'received': txDetails.received.toSat(),
+          'fee': txDetails.fee?.toSat(),
+          'feeRate': txDetails.feeRate,
+        };
 
-        // Case B — Blockstream shape: { "1": 87.8, "2": ..., "3": ..., "6": ..., ... }
-        if (json is Map<String, dynamic>) {
-          double? parseKey(String k) {
-            final v = json[k];
-            if (v is num) return v.toDouble();
-            if (v is String) return double.tryParse(v);
-            return null;
-          }
-
-          // Prefer 3 blocks (~30 minutes)
-          double? f3 = parseKey('3');
-
-          if (f3 == null) {
-            // If "3" is missing, pick the closest available target (>= then <=)
-            final keys = <int>[];
-            for (final k in json.keys) {
-              final n = int.tryParse(k);
-              if (n != null) keys.add(n);
-            }
-            if (keys.isNotEmpty) {
-              keys.sort();
-              double? valFor(int t) => parseKey('$t');
-
-              // nearest >= 3
-              final ge = keys.firstWhere((k) => k >= 3, orElse: () => -1);
-              if (ge != -1) f3 = valFor(ge);
-
-              // nearest <= 3 if still null
-              if (f3 == null) {
-                for (int i = keys.length - 1; i >= 0; i--) {
-                  if (keys[i] <= 3) {
-                    f3 = valFor(keys[i]);
-                    if (f3 != null) break;
-                  }
-                }
-              }
-            }
-          }
-
-          if (f3 != null) return f3;
-        }
-      } catch (e) {
-        // print('[getFeeRate] Error for $uri: $e');
-        // try next candidate
-        continue;
+        results.add(txMap);
+        // print('[TX] Added tx $txid to results');
       }
-    }
 
-    // If we get here, both endpoints failed or didn’t return usable data.
-    throw ('Unable to fetch fee rate from mempool or blockstream endpoints.');
+      // print('[TX] getTransactions() completed. Total: ${results.length}');
+      return results;
+    } catch (e, st) {
+      print('[TX][ERROR] Failed to fetch transactions');
+      print('[TX][ERROR] $e');
+      print('[TX][STACKTRACE]\n$st');
+      throw Exception('Failed to fetch transactions: $e');
+    }
   }
 
-  Future<Map<String, double>?> fetchRecommendedFees() async {
-    // Get whatever you already return from your helper (with or without trailing slash)
-    final String base = await baseUrl;
-    Uri join(String path) {
-      final b = base.endsWith('/') ? base.substring(0, base.length - 1) : base;
-      return Uri.parse('$b$path');
+  Map<String, dynamic>? _getConfirmationTimeFromChainPosition(
+      ChainPosition chainPosition) {
+    // Check the actual runtime type
+    if (chainPosition is ConfirmedChainPosition) {
+      // print('[TX] Transaction is CONFIRMED');
+
+      final confirmationBlockTime = chainPosition.confirmationBlockTime;
+
+      return {
+        'height': confirmationBlockTime.blockId.height,
+        'timestamp': confirmationBlockTime.confirmationTime,
+        'transitively': chainPosition.transitively?.toString(),
+      };
+    } else if (chainPosition is UnconfirmedChainPosition) {
+      // print('[TX] Transaction is UNCONFIRMED');
+
+      return {
+        'height': null,
+        'timestamp': chainPosition.timestamp,
+        'unconfirmed': true,
+      };
+    } else {
+      // print(
+      //     '[TX][WARN] Unknown chain position type: ${chainPosition.runtimeType}');
+      return null;
     }
-
-    // Attempt 1: mempool-style endpoint
-    final candidates = <Uri>[
-      join('/v1/fees/recommended'),
-      // Attempt 2: blockstream-style endpoint
-      join('/fee-estimates'),
-    ];
-
-    Map<String, double>? parsed;
-
-    for (final uri in candidates) {
-      try {
-        final resp = await http.get(uri);
-        if (resp.statusCode != 200) {
-          // Try next candidate
-          continue;
-        }
-
-        final dynamic json = jsonDecode(resp.body);
-
-        // Case A: mempool recommended shape
-        if (json is Map && json.containsKey('fastestFee')) {
-          final fastest = (json['fastestFee'] as num?)?.toDouble();
-          final halfHour = (json['halfHourFee'] as num?)?.toDouble();
-          final hour = (json['hourFee'] as num?)?.toDouble();
-          if (fastest != null && halfHour != null && hour != null) {
-            parsed = {
-              'fastestFee': fastest,
-              'halfHourFee': halfHour,
-              'hourFee': hour,
-            };
-            break;
-          }
-        }
-
-        // Case B: blockstream fee-estimates shape: {"1": 87.882, "2": ...}
-        if (json is Map<String, dynamic>) {
-          double? get(Map<String, dynamic> m, String k) {
-            final v = m[k];
-            if (v is num) return v.toDouble();
-            if (v is String) return double.tryParse(v);
-            return null;
-          }
-
-          // Preferred direct lookups
-          double? f1 = get(json, '1');
-          double? f3 = get(json, '3');
-          double? f6 = get(json, '6');
-
-          // If any are missing, pick the closest available target among the known keys
-          double? closest(int target) {
-            // keys include 1-25, 144, 504, 1008
-            // We’ll search exact first, then the nearest greater, then nearest lower.
-            final keys = <int>[];
-            for (final k in json.keys) {
-              final n = int.tryParse(k);
-              if (n != null) keys.add(n);
-            }
-            if (keys.isEmpty) return null;
-            keys.sort();
-
-            double? readFor(int t) {
-              final exact = get(json, '$t');
-              if (exact != null) return exact;
-              // nearest >= target
-              final ge = keys.firstWhere(
-                (k) => k >= t,
-                orElse: () => -1,
-              );
-              if (ge != -1) {
-                final v = get(json, '$ge');
-                if (v != null) return v;
-              }
-              // nearest <= target
-              for (int i = keys.length - 1; i >= 0; i--) {
-                if (keys[i] <= t) {
-                  final v = get(json, '${keys[i]}');
-                  if (v != null) return v;
-                }
-              }
-              return null;
-            }
-
-            return readFor(target);
-          }
-
-          f1 ??= closest(1);
-          f3 ??= closest(3);
-          f6 ??= closest(6);
-
-          if (f1 != null && f3 != null && f6 != null) {
-            parsed = {
-              'fastestFee': f1,
-              'halfHourFee': f3,
-              'hourFee': f6,
-            };
-            break;
-          }
-        }
-
-        // If we got here, this candidate didn't produce the shape we need; try next
-      } catch (e) {
-        // Network/parse error → try next candidate
-        // print('fetchRecommendedFees error for $uri: $e');
-        continue;
-      }
-    }
-
-    if (parsed == null) {
-      print('Failed to fetch fee estimates from available endpoints.');
-    }
-
-    return parsed;
   }
 
-  Future<List<Map<String, dynamic>>> getTransactions(String address) async {
-    final results = wallet.listTransactions(includeRaw: true);
+  List<Map<String, dynamic>> sortTransactionsByConfirmations(
+    List<Map<String, dynamic>> transactions,
+    int currentHeight,
+  ) {
+    // print('=== Sorting Transactions by Confirmations ===');
+    // print('Current blockchain height: $currentHeight');
+    // print('Number of transactions to sort: ${transactions.length}');
 
-    List<Map<String, dynamic>> finalTxs = [];
+    // Create a copy to avoid modifying the original list
+    final sortedTransactions = List<Map<String, dynamic>>.from(transactions);
 
-    for (var tx in results) {
-      final url = '${await baseUrl}/tx/${tx.txid}';
+    sortedTransactions.sort((a, b) {
+      // Extract block heights from transaction data
+      final blockHeightA = a['confirmationTime']?['height'];
+      final blockHeightB = b['confirmationTime']?['height'];
 
-      try {
-        // print(url);
+      // Compute confirmations
+      final confirmationsA = (blockHeightA != null && blockHeightA is int)
+          ? currentHeight - blockHeightA
+          : -1;
 
-        // Send the GET request to the API
-        final response = await http.get(Uri.parse(url));
+      final confirmationsB = (blockHeightB != null && blockHeightB is int)
+          ? currentHeight - blockHeightB
+          : -1;
 
-        // Check if the response was successful
-        if (response.statusCode == 200) {
-          // Parse the JSON response
-          Map<String, dynamic> txJson = jsonDecode(response.body);
+      // print('  Comparing:');
+      // print('    TX A - Height: $blockHeightA, Confirmations: $confirmationsA');
+      // print('    TX B - Height: $blockHeightB, Confirmations: $confirmationsB');
 
-          // Do not add 'index' key — use the list index instead
-          finalTxs.add(txJson);
-        } else {
-          throw Exception(
-            'Failed to load transactions. Status Code: ${response.statusCode}',
-          );
-        }
-      } catch (e) {
-        throw Exception('Failed to fetch transactions: $e');
+      // Lower confirmations should come FIRST (unconfirmed at the top)
+      return confirmationsA.compareTo(confirmationsB);
+    });
+
+    // Log the final sorted order
+    // print('\nSorted transaction order (lower confirmations first):');
+    for (var i = 0; i < sortedTransactions.length; i++) {
+      final tx = sortedTransactions[i];
+      final blockHeight = tx['confirmationTime']?['height'];
+      final confirmations = (blockHeight != null && blockHeight is int)
+          ? currentHeight - blockHeight
+          : -1;
+      final isUnconfirmed = tx['confirmationTime']?['unconfirmed'] == true;
+      final txid = tx['txid']?.toString();
+      final shortTxid = txid != null ? '${txid.substring(0, 8)}...' : 'unknown';
+
+      String status;
+      if (isUnconfirmed) {
+        status = 'UNCONFIRMED';
+      } else if (blockHeight != null) {
+        status = '$confirmations confirmations';
+      } else {
+        status = 'unknown';
       }
+
+      // print('  [$i] $shortTxid - $status (Block: $blockHeight)');
     }
+    // print('=== End of sorting ===\n');
 
-    // printInChunks('txsnew: $finalTxs');
-
-    return finalTxs;
+    return sortedTransactions;
   }
-
-  // Future<List<Map<String, dynamic>>> getTransactions(String address) async {
-  //   try {
-  //     // Construct the URL
-  //     final url = '${await baseUrl}/address/$address/txs';
-
-  //     print(url);
-
-  //     // Send the GET request to the API
-  //     final response = await http.get(Uri.parse(url));
-
-  //     // Check if the response was successful
-  //     if (response.statusCode == 200) {
-  //       // Parse the JSON response
-  //       List<dynamic> transactionsJson = jsonDecode(response.body);
-
-  //       printInChunks(
-  //           'txsold: ${List<Map<String, dynamic>>.from(transactionsJson)}');
-
-  //       // Cast to List<Map<String, dynamic>> for easier processing
-  //       return List<Map<String, dynamic>>.from(transactionsJson);
-  //     } else {
-  //       throw Exception(
-  //         'Failed to load transactions. Status Code: ${response.statusCode}',
-  //       );
-  //     }
-  //   } catch (e) {
-  //     throw Exception('Failed to fetch transactions: $e');
-  //   }
-  // }
 
   Future<int> fetchCurrentBlockHeight() async {
-    // print(await blockchain.getHeight());
-
-    return blockchain.getHeight();
+    final client = EsploraClient(await baseUrl, null);
+    try {
+      return client.getHeight();
+    } finally {
+      client.dispose();
+    }
   }
 
   Future<String> fetchBlockTimestamp(int height) async {
     try {
-      String currentHash = await blockchain.getBlockHash(height: height);
+      String currentHash = "";
+
+      final client = EsploraClient(await baseUrl, null);
+      try {
+        currentHash = client.getBlockHash(client.getHeight()).toString();
+      } finally {
+        client.dispose();
+      }
+
       // print('currentHash: $currentHash');
 
       // API endpoint to fetch block details
@@ -784,44 +733,76 @@ class WalletService extends ChangeNotifier {
   }
 
   Future<List<dynamic>> getUtxos() async {
+    // print('[DEBUG] Starting getUtxos()');
     List<dynamic> finalUtxos = [];
-    final walletUtxos = wallet.listUnspent();
 
-    for (var utxo in walletUtxos) {
-      final txid = utxo.outpoint.txid;
+    // print('[DEBUG] Fetching wallet UTXOs...');
+    final walletUtxos = wallet.listUnspent();
+    // print('[DEBUG] Found ${walletUtxos.length} UTXOs in wallet');
+
+    for (var i = 0; i < walletUtxos.length; i++) {
+      final utxo = walletUtxos[i];
+      final txid = utxo.outpoint.txid.toString();
       final vout = utxo.outpoint.vout;
       final value = utxo.txout.value;
+      final keychain = utxo.keychain;
+      final isSpent = utxo.isSpent;
+      final derivationIndex = utxo.derivationIndex;
+      final chainPosition = utxo.chainPosition;
 
-      try {
-        final txResponse =
-            await http.get(Uri.parse('${await baseUrl}/tx/$txid'));
+      // print(
+      //     '[DEBUG] Processing UTXO ${i + 1}/${walletUtxos.length}: $txid:$vout');
+      // print('[DEBUG]   - Value: $value sats');
+      // print('[DEBUG]   - Keychain: $keychain');
+      // print('[DEBUG]   - Is spent: $isSpent');
+      // print('[DEBUG]   - Derivation index: $derivationIndex');
 
-        if (txResponse.statusCode == 200) {
-          final txData = json.decode(txResponse.body);
+      // Build status from chain position (reusing our existing method)
+      final confirmationInfo =
+          _getConfirmationTimeFromChainPosition(chainPosition);
 
-          final status = {
-            'confirmed': txData['status']['confirmed'],
-            'block_height': txData['status']['block_height'],
-            'block_hash': txData['status']['block_hash'],
-            'block_time': txData['status']['block_time'],
-          };
+      final status = {
+        'confirmed':
+            confirmationInfo != null && confirmationInfo['height'] != null,
+        'block_height': confirmationInfo?['height'],
+        'block_time': confirmationInfo?['timestamp'],
+        'unconfirmed': confirmationInfo?['unconfirmed'] == true,
+      };
 
-          finalUtxos.add({
-            'txid': txid,
-            'vout': vout,
-            'status': status,
-            'value': value,
-          });
+      // print(
+      //     '[DEBUG] UTXO status - confirmed: ${status['confirmed']}, height: ${status['block_height']}');
 
-          // print('[DEBUG] Decoded UTXOs: $finalUtxos');
-        } else {
-          print('[ERROR] Failed to fetch tx $txid: ${txResponse.statusCode}');
-        }
-      } catch (e) {
-        print('[EXCEPTION] While fetching tx $txid: $e');
+      // You can optionally still fetch additional data from the API if needed
+      // But the chainPosition already has confirmation info
+      if (status['confirmed'] == true) {
+        // print('[DEBUG] UTXO is confirmed - using chain position data');
+        finalUtxos.add({
+          'txid': txid,
+          'vout': vout,
+          'status': status,
+          'value': value.toSat(), // Convert Amount to int if needed
+          'keychain': keychain.toString(),
+          'derivationIndex': derivationIndex,
+          'isSpent': isSpent,
+        });
+      } else {
+        // print('[DEBUG] UTXO is unconfirmed - using chain position data');
+        finalUtxos.add({
+          'txid': txid,
+          'vout': vout,
+          'status': status,
+          'value': value.toSat(), // Convert Amount to int if needed
+          'keychain': keychain.toString(),
+          'derivationIndex': derivationIndex,
+          'isSpent': isSpent,
+        });
       }
+
+      // print(
+      //     '[DEBUG] Added UTXO to final list. Current count: ${finalUtxos.length}');
     }
 
+    // print('[DEBUG] Completed getUtxos(). Returning ${finalUtxos.length} UTXOs');
     return finalUtxos;
   }
 
@@ -936,15 +917,15 @@ class WalletService extends ChangeNotifier {
     Address? firstAddress;
 
     for (final output in outputs) {
-      final testAddress = await Address.fromScript(
-        script: ScriptBuf(bytes: output.scriptPubkey.bytes),
-        network: settingsProvider.network,
+      final testAddress = Address.fromScript(
+        Script(output.scriptPubkey.toBytes()),
+        settingsProvider.network,
       );
 
       if (firstAddress == null) {
         // Store the first address for comparison
         firstAddress = testAddress;
-      } else if (testAddress.asString() != firstAddress.asString()) {
+      } else if (testAddress.toString() != firstAddress.toString()) {
         // If an address does not match the first one, set the flag to false
         return false;
       }
@@ -952,16 +933,16 @@ class WalletService extends ChangeNotifier {
     return true;
   }
 
-  Future<Address> getAddressFromScriptOutput(TxOut output) {
+  Address getAddressFromScriptOutput(TxOut output) {
     // print('Output: ${output.scriptPubkey.asString()}');
 
     return Address.fromScript(
-      script: ScriptBuf(bytes: output.scriptPubkey.bytes),
-      network: settingsProvider.network,
+      Script(output.scriptPubkey.toBytes()),
+      settingsProvider.network,
     );
   }
 
-  Future<Address> getAddressFromScriptInput(TxIn input) {
+  Address getAddressFromScriptInput(TxIn input) {
     // print(input.previousOutput);
 
     // print("         script: ${input.scriptSig}");
@@ -969,15 +950,18 @@ class WalletService extends ChangeNotifier {
     // print("         previousOutout vout: ${input.previousOutput.vout}");
     // print("         witness: ${input.witness}");
     return Address.fromScript(
-      script: ScriptBuf(bytes: input.scriptSig!.bytes),
-      network: settingsProvider.network,
+      Script(input.scriptSig.toBytes()),
+      settingsProvider.network,
     );
   }
 
   void validateAddress(String address) async {
     try {
-      await Address.fromString(s: address, network: settingsProvider.network);
-    } on AddressException catch (e) {
+      Address(
+        address,
+        settingsProvider.network,
+      );
+    } on Exception catch (e) {
       throw Exception('Invalid address format: $e');
     } catch (e) {
       throw Exception('Unknown error while validating address: $e');
@@ -1030,92 +1014,116 @@ class WalletService extends ChangeNotifier {
     }
   }
 
-  List<Map<String, dynamic>> sortTransactionsByConfirmations(
-    List<Map<String, dynamic>> transactions,
-    int currentHeight,
-  ) {
-    transactions.sort((a, b) {
-      // Extract block height values (if null, assume unconfirmed)
-      final blockHeightA = a['status']?['block_height'];
-      final blockHeightB = b['status']?['block_height'];
-
-      // Extract the number of confirmations for comparison
-      // Determine confirmations (if unconfirmed, set to -1 to prioritize them first)
-      final confirmationsA =
-          (blockHeightA != null) ? currentHeight - blockHeightA : -1;
-      final confirmationsB =
-          (blockHeightB != null) ? currentHeight - blockHeightB : -1;
-
-      int result = confirmationsA.compareTo(confirmationsB);
-
-      // Sort by number of confirmations in descending order (highest first)
-      return result;
-    });
-
-    return transactions;
-  }
-
-  List<String> findNewTransactions(
-    List<Map<String, dynamic>> apiTransactions,
-    List<TransactionDetails> walletTransactions,
-  ) {
-    // Extract transaction IDs from both sources
-    List<String> apiTxIds = apiTransactions
-        .map((tx) => tx['txid'].toString().toLowerCase())
-        .toList();
-    List<String> walletTxIds = walletTransactions
-        .map((tx) => tx.txid.toString().toLowerCase())
-        .toList();
-    // print("🔎 Checking for new transactions...");
-
-    // Find new transactions
-    List<String> newTransactions =
-        walletTxIds.where((txid) => !apiTxIds.contains(txid)).toList();
-
-    // Debugging Output
-    // print("✅ Total API Transactions: ${apiTransactions.length}");
-    // printInChunks(apiTxIds.toString());
-
-    // print("✅ Total Wallet Transactions: ${walletTxIds.length}");
-    // printInChunks(walletTxIds.toString());
-
-    // if (newTransactions.isNotEmpty) {
-    //   print("🆕 New Transactions Found: ${newTransactions.length}");
-
-    //   print("🆕 New Transactions Detected: ${newTransactions.join(", ")}");
-    // } else {
-    //   print("✅ No new transactions.");
-    // }
-
-    return newTransactions;
-  }
-
-  Future<DescriptorPublicKey?> getpubkey(
+  Future<DescriptorPublicKey?> getPubKey(
     Map<String, Future<DescriptorPublicKey?>> pubKeyFutures,
-    String mnemonic,
+    String? mnemonic,
   ) {
-    if (!pubKeyFutures.containsKey(mnemonic)) {
-      pubKeyFutures[mnemonic] = fetchPubKey(mnemonic);
+    // Always return a Future, never null
+    if (mnemonic == null || mnemonic.isEmpty) {
+      return Future.value(null); // Return a Future that completes with null
     }
+
+    if (!pubKeyFutures.containsKey(mnemonic)) {
+      pubKeyFutures[mnemonic] = fetchPubKey(mnemonic).catchError((error) {
+        // Remove from cache on error to allow retry
+        pubKeyFutures.remove(mnemonic);
+        throw error; // Re-throw to be caught by FutureBuilder
+      });
+    }
+
     return pubKeyFutures[mnemonic]!;
   }
 
   Future<DescriptorPublicKey?> fetchPubKey(String mnemonic) async {
-    final trueMnemonic = await Mnemonic.fromString(mnemonic);
+    final trueMnemonic = Mnemonic.fromString(mnemonic);
 
-    final hardenedDerivationPath = await DerivationPath.create(
-      path: "m/84h/1h/0h",
-    );
+    DerivationPath hardenedDerivationPath;
 
-    final receivingDerivationPath = await DerivationPath.create(path: "m/0");
+    if (settingsProvider.network == Network.bitcoin) {
+      hardenedDerivationPath = DerivationPath("m/84h/0h/0h");
+    } else {
+      hardenedDerivationPath = DerivationPath("m/84h/1h/0h");
+    }
+    final receivingDerivationPath = DerivationPath("m/0");
 
-    final (receivingSecretKey, receivingPublicKey) = await deriveDescriptorKeys(
+    final (receivingSecretKey, receivingPublicKey) = deriveDescriptorKeys(
       hardenedDerivationPath,
       receivingDerivationPath,
       trueMnemonic,
     );
 
     return receivingPublicKey;
+  }
+
+  Future<Map<String, double>?> fetchRecommendedFees() async {
+    final client = EsploraClient(await baseUrl, null);
+
+    try {
+      final feeEstimates = client.getFeeEstimates();
+
+      if (feeEstimates.isEmpty) {
+        return null;
+      }
+
+      // Get all available block targets and sort them
+      final blockTargets = feeEstimates.keys.toList()..sort();
+
+      if (blockTargets.isEmpty) {
+        return null;
+      }
+
+      final lowestTarget = blockTargets.last;
+      final highestTarget = blockTargets.first;
+
+      final middleIndex = blockTargets.length ~/ 2;
+      final middleTarget = blockTargets[middleIndex];
+
+      final lowestFee = (feeEstimates[lowestTarget]! * 10).ceilToDouble() / 10;
+      final middleFee = (feeEstimates[middleTarget]! * 10).ceilToDouble() / 10;
+      final highestFee =
+          (feeEstimates[highestTarget]! * 10).ceilToDouble() / 10;
+
+      return {
+        'fastestFee': highestFee,
+        'halfHourFee': middleFee,
+        'hourFee': lowestFee,
+      };
+    } catch (e) {
+      print('Errore fetching recommende fess: $e');
+      return null;
+    } finally {
+      client.dispose();
+    }
+  }
+
+  Future<double> getFeeRate() async {
+    final client = EsploraClient(await baseUrl, null);
+
+    try {
+      final feeEstimates = client.getFeeEstimates();
+
+      if (feeEstimates.isEmpty) {
+        throw Exception('No fee estimates available');
+      }
+
+      final blockTargets = feeEstimates.keys.toList()..sort();
+
+      if (blockTargets.isEmpty) {
+        throw Exception('No block targets available');
+      }
+
+      final middleIndex = blockTargets.length ~/ 2;
+      final middleTarget = blockTargets[middleIndex];
+
+      final feeRate = feeEstimates[middleTarget]!;
+
+      return feeRate.ceilToDouble();
+    } catch (e) {
+      print('Errore fetching fee rate: $e');
+      rethrow;
+    } finally {
+      client.dispose();
+    }
   }
 
   ///
@@ -1135,48 +1143,58 @@ class WalletService extends ChangeNotifier {
   ///
 
   Future<Wallet> createOrRestoreWallet(String mnemonic) async {
+    // print('[WALLET] Starting createOrRestoreWallet');
+    // print('[WALLET] Network: ${settingsProvider.network}');
+    // print('[WALLET] Mnemonic word count: ${mnemonic.split(" ").length}');
+
     try {
-      final descriptors = await getDescriptors(mnemonic);
+      // print('[WALLET] Generating descriptors...');
+      final descriptors = getDescriptors(mnemonic);
+      // print('[WALLET] Descriptors generated: ${descriptors.length}');
 
+      // print('[WALLET] Checking connectivity...');
       final List<ConnectivityResult> connectivityResult =
-          await (Connectivity().checkConnectivity());
-      if (!connectivityResult.contains(ConnectivityResult.none)) {
-        await blockchainInit();
-      }
+          await Connectivity().checkConnectivity();
+      // print('[WALLET] Connectivity result: $connectivityResult');
 
-      final res = await Wallet.create(
-        descriptor: descriptors[0],
-        changeDescriptor: descriptors[1],
-        network: settingsProvider.network,
-        databaseConfig: const DatabaseConfig.memory(),
+      // print('[WALLET] Constructing wallet (lookahead=100)...');
+      persister = Persister.newInMemory();
+      wallet = Wallet(
+        descriptors[0],
+        descriptors[1],
+        settingsProvider.network,
+        persister,
+        100,
       );
-      // var addressInfo =
-      //     await res.getAddress(addressIndex: const AddressIndex());
+      final persisted = wallet.persist(persister);
+      // print('[WALLET] Wallet constructed successfully $persisted');
 
-      // print(res);
-
-      return res;
-    } on Exception catch (e) {
-      // print("Error: ${e.toString()}");
-      throw Exception('Failed to create wallet (Error: ${e.toString()})');
+      // print('[WALLET] Wallet ready');
+      return wallet;
+    } catch (e, st) {
+      print('[WALLET][ERROR] Wallet creation/restoration failed');
+      print('[WALLET][ERROR] $e');
+      print('[WALLET][STACKTRACE]\n$st');
+      throw Exception('Failed to create wallet (Error: $e)');
     }
   }
 
-  Future<List<Descriptor>> getDescriptors(String mnemonic) async {
+  List<Descriptor> getDescriptors(String mnemonic) {
     final descriptors = <Descriptor>[];
     try {
-      for (var e in [KeychainKind.externalChain, KeychainKind.internalChain]) {
-        final mnemonicObj = await Mnemonic.fromString(mnemonic);
+      for (var e in [KeychainKind.external_, KeychainKind.internal]) {
+        final mnemonicObj = Mnemonic.fromString(mnemonic);
 
-        final descriptorSecretKey = await DescriptorSecretKey.create(
-          network: settingsProvider.network,
-          mnemonic: mnemonicObj,
+        final descriptorSecretKey = DescriptorSecretKey(
+          settingsProvider.network,
+          mnemonicObj,
+          null,
         );
 
-        final descriptor = await Descriptor.newBip84(
-          secretKey: descriptorSecretKey,
-          network: settingsProvider.network,
-          keychain: e,
+        final descriptor = Descriptor.newBip84(
+          descriptorSecretKey,
+          e,
+          settingsProvider.network,
         );
 
         descriptors.add(descriptor);
@@ -1188,10 +1206,47 @@ class WalletService extends ChangeNotifier {
     }
   }
 
+  String generateDonationAddress() {
+    String address = "";
+
+    final publicKey = settingsProvider.network == Network.bitcoin
+        ? DescriptorPublicKey.fromString(
+            "[98a2af72/84'/0'/0']xpub6DMymVxGHgvA6yMn9CcMFXAJfWremKeogbF2uoxCiCazHa5XT3vTPeZirsPsgoxTRZxES1nAVZ9fjJUMB2N4afU3WWAwc4Qe6Ry5c5UbTLc/0/*")
+        : DescriptorPublicKey.fromString(
+            "[f31c4a3b/84'/1'/0']tpubDDeWSeMbdTfhgWkR5WfXNXtgfrWDNh7CtEojp7rp7Jq3Rxc641XE9gaZEyfzmnCadaLu5VXdxRiFucSF4j25GeaASmw6ZbXgecqokn5jPPN/0/*");
+
+    final fingerPrint =
+        settingsProvider.network == Network.bitcoin ? "98a2af72" : "f31c4a3b";
+
+    final descriptor = Descriptor.newBip84Public(publicKey, fingerPrint,
+        KeychainKind.external_, settingsProvider.network);
+    final changeDescriptor = Descriptor.newBip84Public(publicKey, fingerPrint,
+        KeychainKind.internal, settingsProvider.network);
+
+    persister = Persister.newInMemory();
+
+    final donationWallet = Wallet(
+      descriptor,
+      changeDescriptor,
+      settingsProvider.network,
+      persister,
+      100,
+    );
+
+    final persisted = donationWallet.persist(persister);
+
+    address = donationWallet
+        .nextUnusedAddress(KeychainKind.external_)
+        .address
+        .toString();
+
+    return address;
+  }
+
   // Method to create, sign and broadcast a single user transaction
   Future<void> sendSingleTx(
     String recipientAddressStr,
-    BigInt amount,
+    Amount amount,
     Wallet wallet,
     String changeAddressStr,
     double? customFeeRate,
@@ -1206,15 +1261,15 @@ class WalletService extends ChangeNotifier {
       // Build the transaction
       final txBuilder = TxBuilder();
 
-      final recipientAddress = await Address.fromString(
-        s: recipientAddressStr,
-        network: wallet.network(),
+      final recipientAddress = Address(
+        recipientAddressStr,
+        wallet.network(),
       );
       final recipientScript = recipientAddress.scriptPubkey();
 
-      final changeAddress = await Address.fromString(
-        s: changeAddressStr,
-        network: wallet.network(),
+      final changeAddress = Address(
+        changeAddressStr,
+        wallet.network(),
       );
       final changeScript = changeAddress.scriptPubkey();
 
@@ -1223,24 +1278,52 @@ class WalletService extends ChangeNotifier {
       // Build the transaction:
       // - Send `amount` to the recipient
       // - Any remaining funds (change) will be sent to the change address
-      final txBuilderResult = await txBuilder
-          .enableRbf()
+      final txBuilderResult = txBuilder
+          // .enableRbf()
           .addRecipient(recipientScript, amount) // Send to recipient
           .drainWallet() // Drain all wallet UTXOs, sending change to a custom address
-          .feeRate(feeRate) // Set the fee rate (in satoshis per byte)
+          .feeRate(FeeRate.fromSatPerVb(
+              feeRate.toInt())) // Set the fee rate (in satoshis per byte)
           .drainTo(
             changeScript,
           ) // Specify the custom address to send the change
           .finish(wallet); // Finalize the transaction with wallet's UTXOs
 
       // Sign the transaction
-      final isFinalized = wallet.sign(psbt: txBuilderResult.$1);
+      final isFinalized = wallet.sign(
+        txBuilderResult,
+        SignOptions(
+          true,
+          null,
+          false,
+          true,
+          false,
+          false,
+        ),
+      );
 
       // Broadcast the transaction only if it is finalized
       if (isFinalized) {
-        final tx = txBuilderResult.$1.extractTx();
         // Broadcast the transaction to the network only if it is finalized
-        await blockchain.broadcast(transaction: tx);
+
+        ElectrumClient? client;
+        final tx = txBuilderResult.extractTx();
+
+        for (final server in electrumServers) {
+          try {
+            // Pick the right server for the network you're on
+            client = ElectrumClient(server, null);
+
+            final txid = client.transactionBroadcast(tx);
+
+            // print("Broadcasted! txid: $txid");
+          } catch (e) {
+            print("Broadcast failed: $e");
+            rethrow;
+          } finally {
+            client?.dispose();
+          }
+        }
       }
     } on Exception catch (e) {
       print("Error: ${e.toString()}");
@@ -1264,63 +1347,104 @@ class WalletService extends ChangeNotifier {
   ///
   ///
 
+  String stripChecksum(String d) => d.split('#').first;
+
+  String makeChangeDescriptor(String receiveDescriptor) {
+    final d = stripChecksum(receiveDescriptor);
+
+    // Shift chains to avoid overlap:
+    // 0->10, 1->11, 2->12
+    // Use a careful replacement order so we don't double-replace.
+    return d
+        .replaceAll('/2/*', '/__TMP2__/*')
+        .replaceAll('/1/*', '/__TMP1__/*')
+        .replaceAll('/0/*', '/__TMP0__/*')
+        .replaceAll('/__TMP0__/*', '/10/*')
+        .replaceAll('/__TMP1__/*', '/11/*')
+        .replaceAll('/__TMP2__/*', '/12/*');
+  }
+
   Future<Wallet> createSharedWallet(String descriptor) async {
-    // print(settingsProvider.network);
+    // print('========== CREATE SHARED WALLET ==========');
+    // print('Network: ${settingsProvider.network}');
+    // print('Original descriptor:');
+    // printInChunks(descriptor);
 
-    Descriptor descriptorReal = await Descriptor.create(
-      descriptor: descriptor,
-      network: settingsProvider.network,
+    // print('\n--- Creating receive descriptor ---');
+    final receiveDesc = Descriptor(descriptor, settingsProvider.network);
+    // print('Receive descriptor created:');
+    // printInChunks(receiveDesc.toString());
+
+    // print('\n--- Creating change descriptor ---');
+    final changeDescStr = makeChangeDescriptor(descriptor);
+    // print('Change descriptor string:');
+    // printInChunks(changeDescStr);
+
+    final changeDesc = Descriptor(changeDescStr, settingsProvider.network);
+    // print('Change descriptor created:');
+    // printInChunks(changeDesc.toString());
+    // printInChunks(changeDesc.toStringWithSecret());
+
+    // print('\n--- Initializing persister ---');
+    persister = Persister.newInMemory();
+    // print('Persister created: in-memory');
+
+    // print('\n--- Creating wallet ---');
+    // print('Sync params: lookahead = 100');
+
+    // bdk-dart
+    wallet = Wallet(
+      receiveDesc,
+      changeDesc,
+      settingsProvider.network,
+      persister,
+      100,
     );
 
-    // print("Checksum Descriptor");
-    // printInChunks(descriptorReal.asString());
-
-    wallet = await Wallet.create(
-      descriptor: descriptorReal,
-      network: settingsProvider.network,
-      databaseConfig: const DatabaseConfig.memory(),
-    );
+    // print('✓ Wallet created successfully');
+    // print('==========================================\n');
 
     return wallet;
   }
 
-  Future<void> saveLocalData(
-    Wallet wallet,
-    DateTime lastRefreshed,
-    Set<String> myAddresses,
-  ) async {
-    String currentAddress = getAddress(wallet);
+  Future<void> saveLocalData({
+    required Wallet wallet,
+    required String address,
+    required int currentHeight,
+    required String timestamp,
+    required int availableBalance,
+    required int ledgerBalance,
+    required List<Map<String, dynamic>> transactions,
+    List<dynamic>? utxos,
+    required DateTime lastRefreshed,
+    required Set<String> myAddresses,
+  }) async {
+    final methodStart = DateTime.now();
+    // print("💾 [saveLocalData] START (pure save)");
 
-    String walletId = wallet
-        .getAddress(addressIndex: AddressIndex.peek(index: 0))
-        .address
-        .asString();
+    final walletId =
+        wallet.peekAddress(KeychainKind.external_, 0).address.toString();
 
-    final totalBalance = await getBitcoinBalance(currentAddress);
-    final availableBalance = totalBalance['confirmedBalance'];
-    final ledgerBalance = totalBalance['pendingBalance'];
-    final currentHeight = await fetchCurrentBlockHeight();
-    final timestamp = await fetchBlockTimestamp(currentHeight);
-
-    List<Map<String, dynamic>> transactions =
-        await getTransactions(currentAddress);
-    transactions = sortTransactionsByConfirmations(transactions, currentHeight);
+    final totalWalletBalance = int.parse(getBalance(wallet).toString());
 
     final walletData = WalletData(
-      address: currentAddress,
-      balance: int.parse(getBalance(wallet).toString()),
-      ledgerBalance: ledgerBalance!,
-      availableBalance: availableBalance!,
+      address: address,
+      balance: totalWalletBalance,
+      ledgerBalance: ledgerBalance,
+      availableBalance: availableBalance,
       transactions: transactions,
       currentHeight: currentHeight,
       timeStamp: timestamp,
-      utxos: await getUtxos(),
+      utxos: utxos,
       lastRefreshed: lastRefreshed,
       myAddresses: myAddresses,
     );
 
-    // Save the data to Hive
     await _walletStorageService.saveWalletData(walletId, walletData);
+
+    final totalMs = DateTime.now().difference(methodStart).inMilliseconds;
+    // print("✅ [saveLocalData] DONE in ${totalMs}ms");
+    // print("=======================================");
   }
 
   String replacePubKeyWithPrivKeyMultiSig(
@@ -1391,11 +1515,11 @@ class WalletService extends ChangeNotifier {
     return result;
   }
 
-  Future<(DescriptorSecretKey, DescriptorPublicKey)> deriveDescriptorKeys(
+  (DescriptorSecretKey, DescriptorPublicKey) deriveDescriptorKeys(
     DerivationPath hardenedPath,
     DerivationPath unHardenedPath,
     Mnemonic mnemonic,
-  ) async {
+  ) {
     // print("🔐 Starting key derivation process...");
     // print("🧠 Mnemonic: $mnemonic");
     // print("📌 Network: ${settingsProvider.network}");
@@ -1403,9 +1527,10 @@ class WalletService extends ChangeNotifier {
     // print("📍 Unhardened path: $unHardenedPath");
 
     // Create the root secret key from the mnemonic
-    final secretKey = await DescriptorSecretKey.create(
-      network: settingsProvider.network,
-      mnemonic: mnemonic,
+    final secretKey = DescriptorSecretKey(
+      settingsProvider.network,
+      mnemonic,
+      null,
     );
     // print("✅ Root secret key created: ${secretKey.asString()}");
 
@@ -1418,11 +1543,11 @@ class WalletService extends ChangeNotifier {
     // print("🔁 Extended secret key: ${derivedExtendedSecretKey.asString()}");
 
     // Convert the derived secret key to its public counterpart
-    final publicKey = derivedSecretKey.toPublic();
+    final publicKey = derivedSecretKey.asPublic();
     // print("🔓 Public key from hardened key: ${publicKey.asString()}");
 
     // Extend the public key using the same unhardened path
-    final derivedExtendedPublicKey = publicKey.extend(path: unHardenedPath);
+    final derivedExtendedPublicKey = publicKey.extend(unHardenedPath);
     // print("🔁 Extended public key: ${derivedExtendedPublicKey.asString()}");
 
     // print("✅ Key derivation complete");
@@ -1494,6 +1619,8 @@ class WalletService extends ChangeNotifier {
   ) {
     List<Map<String, dynamic>> result = [];
 
+    // print("Fingerprint: $fingerprint");
+
     void traverse(
       Map<String, dynamic> node,
       List<String> path,
@@ -1527,14 +1654,17 @@ class WalletService extends ChangeNotifier {
             for (var sibling in parentItems) {
               if (sibling['type'] == 'RELATIVETIMELOCK') {
                 type = "RELATIVETIMELOCK > $type";
-                timelockValue = sibling['value'];
+
+                timelockValue = sibling['value']['Blocks'];
+
                 // print(
                 //     "⏱️ RELATIVETIMELOCK detected. Updated type: $type | Timelock: $timelockValue");
               } else if (sibling['type'] == 'ABSOLUTETIMELOCK') {
                 type = "ABSOLUTETIMELOCK > $type";
                 timelockValue = sibling['value'];
+
                 // print(
-                //     "🕰️ ABSOLUTETIMELOCK detected. Updated type: $type | Timelock: $timelockValue");
+                // "🕰️ ABSOLUTETIMELOCK detected. Updated type: $type | Timelock: $timelockValue");
               }
             }
           }
@@ -1549,9 +1679,10 @@ class WalletService extends ChangeNotifier {
 
           result.add(entry);
           // print("📥 Added to result: $entry");
-        } else {
-          // print("❌ No fingerprint match in keys.");
         }
+        // else {
+        //   print("❌ No fingerprint match in keys.");
+        // }
       }
 
       // === Check for direct fingerprint match in ECDSASIGNATURE ===
@@ -1566,12 +1697,15 @@ class WalletService extends ChangeNotifier {
           for (var sibling in parentItems) {
             if (sibling['type'] == 'RELATIVETIMELOCK') {
               type = "RELATIVETIMELOCK > $type";
-              timelockValue = sibling['value'];
+
+              timelockValue = sibling['value']['Blocks'];
+
               // print(
               //     "⏱️ RELATIVETIMELOCK affects ECDSASIGNATURE. Timelock: $timelockValue");
             } else if (sibling['type'] == 'ABSOLUTETIMELOCK') {
               type = "ABSOLUTETIMELOCK > $type";
               timelockValue = sibling['value'];
+
               // print(
               //     "🕰️ ABSOLUTETIMELOCK affects ECDSASIGNATURE. Timelock: $timelockValue");
             }
@@ -1601,9 +1735,10 @@ class WalletService extends ChangeNotifier {
             items,
           );
         }
-      } else {
-        // print("🚫 No child items.");
       }
+      // else {
+      //   print("🚫 No child items.");
+      // }
     }
 
     // print("🚀 Starting fingerprint extraction for: $fingerprint\n");
@@ -1613,6 +1748,8 @@ class WalletService extends ChangeNotifier {
   }
 
   List<Map<String, dynamic>> extractAllPaths(Map<String, dynamic> json) {
+    // print('--- extractAllPaths START ---');
+
     List<Map<String, dynamic>> result = [];
 
     void traverse(
@@ -1621,14 +1758,17 @@ class WalletService extends ChangeNotifier {
       List<dynamic>? parentItems,
     ) {
       // print(
-      //     "Traversing node: ${node['id'] ?? 'Unknown ID'}, Path: ${path.join(' > ')}");
+      //     '[TRAVERSE] Node type: ${node['type']} | Path: ${path.join(' > ')}');
 
       // Check if this node has keys
       if (node['keys'] != null) {
-        // print("Checking keys in node: ${node['id'] ?? 'Unknown ID'}");
+        // print('[KEYS] Found keys in node type: ${node['type']}');
+
         List<dynamic> keys = node['keys'];
         List<String> fingerprints =
             keys.map((key) => key['fingerprint'] as String).toList();
+
+        // print('[KEYS] Fingerprints: $fingerprints');
 
         // Determine the type and additional constraints
         String type = node['type'];
@@ -1636,35 +1776,47 @@ class WalletService extends ChangeNotifier {
 
         if (node['threshold'] != null) {
           type = "THRESH > $type";
+          // print('[INFO] Threshold detected: ${node['threshold']}');
         }
 
         // Look for sibling constraints (e.g., RELATIVETIMELOCK)
         if (parentItems != null) {
           for (var sibling in parentItems) {
             if (sibling['type'] == 'RELATIVETIMELOCK') {
+              // print('[DEBUG] sibling type: ${sibling['type']}');
+              // print(
+              //     '[DEBUG] sibling value runtimeType: ${sibling['value']?.runtimeType}');
+              // print('[DEBUG] sibling value: ${sibling['value']}');
+
               type = "RELATIVETIMELOCK > $type";
-              timelockValue = sibling['value']; // Capture the timelock value
+              timelockValue = sibling['value']['Blocks'];
+
+              // print('[INFO] Relative timelock detected: $timelockValue');
             } else if (sibling['type'] == 'ABSOLUTETIMELOCK') {
               type = "ABSOLUTETIMELOCK > $type";
+
               timelockValue = sibling['value'];
+
+              // print('[INFO] Absolute timelock detected: $timelockValue');
             }
           }
         }
 
-        // print("Path found in node: ${node['id'] ?? 'Unknown ID'}");
         result.add({
-          'type': type, // Type reflects sibling constraints
+          'type': type,
           'threshold': node['threshold'],
           'fingerprints': fingerprints,
           'path': path.join(' > '),
           'timelock': timelockValue,
         });
-        // print("Added to result: ${result.last}");
+
+        // print('[ADD] Result entry added: ${result.last}');
       }
 
       // Check if this node has a direct fingerprint reference (e.g., ECDSASIGNATURE)
       if (node['type'] == 'ECDSASIGNATURE') {
-        // print("Checking ECDSASIGNATURE in node: ${node['id'] ?? 'Unknown ID'}");
+        // print('[ECDSA] Found ECDSASIGNATURE node');
+
         String type = "ECDSASIGNATURE";
         int? timelockValue;
 
@@ -1673,51 +1825,65 @@ class WalletService extends ChangeNotifier {
           for (var sibling in parentItems) {
             if (sibling['type'] == 'RELATIVETIMELOCK') {
               type = "RELATIVETIMELOCK > $type";
-              timelockValue = sibling['value']; // Capture the timelock value
+
+              timelockValue = sibling['value']['Blocks'];
+
+              // print('[INFO] Relative timelock detected: $timelockValue');
             } else if (sibling['type'] == 'ABSOLUTETIMELOCK') {
               type = "ABSOLUTETIMELOCK > $type";
+
               timelockValue = sibling['value'];
+
+              // print('[INFO] Absolute timelock detected: $timelockValue');
             }
           }
         }
 
         result.add({
           'type': type,
-          'threshold': null, // No threshold for ECDSASIGNATURE
-          'fingerprints': [node['fingerprint']], // Single fingerprint
+          'threshold': null,
+          'fingerprints': [node['fingerprint']],
           'path': path.join(' > '),
           'timelock': timelockValue,
         });
-        // print("Added ECDSASIGNATURE to result: ${result.last}");
+
+        // print('[ADD] ECDSASIGNATURE entry added: ${result.last}');
       }
 
       // Recursively traverse child nodes in "items"
       if (node['items'] != null) {
-        // print(
-        //     "Node has child items: ${node['items'].length} found in node: ${node['id'] ?? 'Unknown ID'}");
         List<dynamic> items = node['items'];
+        // print('[CHILDREN] ${items.length} children found');
+
         for (int i = 0; i < items.length; i++) {
+          // print('[DESCEND] -> ${node['type']}[$i]');
           traverse(
             {
               ...items[i],
-              'parentItems': items, // Pass sibling items as context
+              'parentItems': items,
             },
             [...path, '${node['type']}[$i]'],
             items,
           );
         }
-      } else {
-        // print("No child items in node: ${node['id'] ?? 'Unknown ID'}");
       }
+      // else {
+      //   print('[LEAF] No child items for node type: ${node['type']}');
+      // }
     }
 
-    // print("Starting traversal for all paths");
+    // print('[START] Traversing JSON tree');
     traverse(json, [], null);
-    // print("Traversal complete. Results: $result");
+
+    // print('--- extractAllPaths END ---');
+    // print('[RESULT COUNT] ${result.length}');
+    // print('[RESULT DATA]');
+    // print(result);
+
     return result;
   }
 
-  List<String> extractSignersFromPsbt(PartiallySignedTransaction psbt) {
+  List<String> extractSignersFromPsbt(Psbt psbt) {
     final serializedPsbt = psbt.jsonSerialize();
 
     // printPrettyJson(serializedPsbt);
@@ -1768,14 +1934,13 @@ class WalletService extends ChangeNotifier {
       }
     }
 
-    // Print fingerprints of signing public keys
     // print("Fingerprints of signing public keys: $signingFingerprints");
 
     return signingFingerprints.toSet().toList();
   }
 
   Map<String, dynamic> extractSpendingPathFromPsbt(
-    PartiallySignedTransaction psbt,
+    Psbt psbt,
     List<Map<String, dynamic>> spendingPaths,
   ) {
     final serializedPsbt = psbt.jsonSerialize();
@@ -1783,7 +1948,7 @@ class WalletService extends ChangeNotifier {
 
     // Parse JSON
     final Map<String, dynamic> psbtDecoded = jsonDecode(serializedPsbt);
-    printInChunks("Decoded PSBT: $psbtDecoded");
+    // printInChunks("Decoded PSBT: $psbtDecoded");
 
     if (!psbtDecoded.containsKey("unsigned_tx") ||
         !psbtDecoded["unsigned_tx"].containsKey("input")) {
@@ -2042,51 +2207,82 @@ class WalletService extends ChangeNotifier {
     return (v is Map<String, dynamic>) ? v : null;
   }
 
-  // Method to create a PSBT for a multisig transaction, this psbt is signed by the first user
   Future<String?> createPartialTx(
     String descriptor,
     String mnemonic,
     String recipientAddressStr,
-    BigInt amount,
+    int amount,
     int? chosenPath,
-    BigInt avBalance, {
+    int avBalance, {
     bool isSendAllBalance = false,
     List<Map<String, dynamic>>? spendingPaths,
     double? customFeeRate,
     List<dynamic>? localUtxos,
   }) async {
+    // print("🏁 ===== ENTERING createPartialTx =====");
+    // print("📥 INPUT PARAMETERS:");
+    // printInChunks("   - descriptor: $descriptor");
+    // print("   - mnemonic: [PROVIDED] (length: ${mnemonic.length})");
+    // print("   - recipientAddressStr: $recipientAddressStr");
+    // print("   - amount: $amount sats");
+    // print("   - chosenPath: $chosenPath");
+    // print("   - avBalance: $avBalance sats");
+    // print("   - isSendAllBalance: $isSendAllBalance");
+    // print("   - customFeeRate: $customFeeRate");
+    // print("   - spendingPaths exists: ${spendingPaths != null}");
+    // print(
+    //     "   - localUtxos exists: ${localUtxos != null} (length: ${localUtxos?.length ?? 0})");
+    // print("=====================================");
+
     Map<String, Uint32List>? multiSigPath;
     Map<String, Uint32List>? timeLockPath;
 
-    // print('Bool: $multiSig');
-    Mnemonic trueMnemonic = await Mnemonic.fromString(mnemonic);
+    // print("🔑 Creating Mnemonic from string...");
+    Mnemonic trueMnemonic = Mnemonic.fromString(mnemonic);
+    // print("   ✓ Mnemonic created successfully");
 
-    final hardenedDerivationPath = await DerivationPath.create(
-      path: "m/84h/1h/0h",
-    );
+    DerivationPath hardenedDerivationPath;
 
-    final receivingDerivationPath = await DerivationPath.create(path: "m/0");
+    if (settingsProvider.network == Network.bitcoin) {
+      if (oldCase) {
+        hardenedDerivationPath = DerivationPath("m/84h/1h/0h");
+      } else {
+        hardenedDerivationPath = DerivationPath("m/84h/0h/0h");
+      }
+    } else {
+      hardenedDerivationPath = DerivationPath("m/84h/1h/0h");
+    } // print("   Hardened derivation path: m/84h/1h/0h");
 
-    final (receivingSecretKey, receivingPublicKey) = await deriveDescriptorKeys(
+    final receivingDerivationPath = DerivationPath("m/0");
+    // print("   Receiving derivation path: m/0");
+
+    // print("🔐 Deriving descriptor keys...");
+    final (receivingSecretKey, receivingPublicKey) = deriveDescriptorKeys(
       hardenedDerivationPath,
       receivingDerivationPath,
       trueMnemonic,
     );
-
-    // print(receivingPublicKey);
+    // print("   ✓ Keys derived");
+    // print("   - Receiving Public Key: $receivingPublicKey");
 
     // Extract the content inside square brackets
+    // print("🔍 Extracting fingerprint from public key...");
     final RegExp regex = RegExp(r'\[([^\]]+)\]');
-    final Match? match = regex.firstMatch(receivingPublicKey.asString());
-
+    final Match? match = regex.firstMatch(receivingPublicKey.toString());
+    // if (match == null) {
+    //   print("❌ ERROR: Could not extract fingerprint - regex match failed");
+    // } else {
+    //   final String targetFingerprint = match.group(1)!.split('/')[0];
+    //   print("   ✓ Fingerprint extracted: $targetFingerprint");
+    // }
     final String targetFingerprint = match!.group(1)!.split('/')[0];
-    // print("Fingerprint: $targetFingerprint");
 
-    // print(spendingPaths);
-
-    // Usage
+    // print("🔍 Getting correct path from spendingPaths at index: $chosenPath");
     final correctPath = _pathAt(spendingPaths!, chosenPath!);
+    // print("   ✓ Correct path: $correctPath");
+    // print("   - Is immediate multisig? ${_isImmediateMultisig(correctPath)}");
 
+    // print("✏️ Replacing descriptor with private keys...");
     descriptor = _isImmediateMultisig(correctPath)
         ? replacePubKeyWithPrivKeyMultiSig(
             descriptor,
@@ -2099,186 +2295,182 @@ class WalletService extends ChangeNotifier {
             receivingPublicKey.toString(),
             receivingSecretKey.toString(),
           );
+    // print("   ✓ Descriptor updated");
+    // printInChunks("   - New descriptor: $descriptor...");
 
-    // printInChunks('Sending Descriptor: $descriptor');
-
+    // print("💼 Creating shared wallet with descriptor...");
     wallet = await createSharedWallet(descriptor);
+    // print("   ✓ Wallet created: $wallet");
 
+    // print("📶 Checking connectivity...");
     final List<ConnectivityResult> connectivityResult =
         await (Connectivity().checkConnectivity());
+    // print("   - Connectivity result: $connectivityResult");
 
     final Balance utxos;
-    // final List<LocalUtxo> unspent;
-
-    BigInt totalSpending;
+    int totalSpending;
 
     if (connectivityResult.contains(ConnectivityResult.none)) {
+      // print("⚠️ OFFLINE MODE: No internet connection");
       if (!isSendAllBalance) {
-        // totalSpending = amount + BigInt.from(feeRate);
-
         totalSpending = amount;
-        // print("Total Spending: $totalSpending");
-        // print("Available Balance: ${avBalance}");
-        // Check If there are enough funds available
+        // print("   - Total spending (offline): $totalSpending sats");
+        // print("   - Available balance: $avBalance sats");
+
         if (avBalance < totalSpending) {
-          // Exit early if no confirmed UTXOs are available
+          // print("❌ ERROR: Insufficient confirmed funds available");
           throw Exception(
             "Not enough confirmed funds available. Please wait until your transactions confirm.",
           );
         }
+        // print("   ✓ Sufficient funds available (offline check)");
       }
     } else {
+      // print("🌐 ONLINE MODE: Syncing wallet...");
       await syncWallet(wallet);
-      utxos = wallet.getBalance();
-      // print("Available UTXOs: ${utxos.confirmed}");
+      // print("   ✓ Wallet synced");
+
+      utxos = wallet.balance();
+      // print("   - Wallet balance - Confirmed: ${utxos.confirmed.toSat()} sats");
+      // print(
+      //     "   - Wallet balance - Trusted spendable: ${utxos.trustedSpendable.toSat()} sats");
+      // print("   - Wallet balance - Immature: ${utxos.immature.toSat()} sats");
+      // print(
+      //     "   - Wallet balance - Untrusted: ${utxos.untrustedPending.toSat()} sats");
 
       if (!isSendAllBalance) {
         totalSpending = amount;
-        // print("Total Spending: $totalSpending");
-        // print("Confirmed Utxos: ${utxos.spendable}");
-        // Check If there are enough funds available
-        if (utxos.spendable < totalSpending) {
-          // Exit early if no confirmed UTXOs are available
+        // print("   - Total spending: $totalSpending sats");
+        // print(
+        //     "   - Confirmed UTXOs available: ${utxos.trustedSpendable.toSat()} sats");
+
+        if (utxos.trustedSpendable.toSat() < totalSpending) {
+          // print("❌ ERROR: Insufficient confirmed funds available");
           throw Exception(
             "Not enough confirmed funds available. Please wait until your transactions confirm.",
           );
         }
+        // print("   ✓ Sufficient funds available");
       }
-
-      // unspent = wallet.listUnspent();
     }
 
+    // print("💰 Getting fee rate...");
     final feeRate = customFeeRate ?? await getFeeRate();
-
-    // print('Custom Fee Rate: $customFeeRate');
+    // print("   - Fee rate: $feeRate sat/vB");
 
     List<OutPoint> spendableOutpoints = [];
-
-    // for (var utxo in unspent) {
-    //   print('UTXO: ${utxo.outpoint.txid}, Amount: ${utxo.txout.value}');
-    // }
+    // print("   - Initialized spendableOutpoints list");
 
     try {
-      // Build the transaction
+      // print("🏗️ Building transaction...");
       var txBuilder = TxBuilder();
+      // print("   ✓ TxBuilder initialized");
 
-      final recipientAddress = await Address.fromString(
-        s: recipientAddressStr,
-        network: wallet.network(),
+      // print("📬 Creating recipient address...");
+      final recipientAddress = Address(
+        recipientAddressStr,
+        wallet.network(),
       );
       final recipientScript = recipientAddress.scriptPubkey();
+      // print("   - Recipient script generated");
+      // print("   - Network: ${wallet.network()}");
 
-      var internalChangeAddress = wallet.getInternalAddress(
-        addressIndex: const AddressIndex.peek(index: 0),
-      );
-
+      // print("🏦 Getting internal change address...");
+      var internalChangeAddress = wallet.peekAddress(KeychainKind.external_, 0);
       final changeScript = internalChangeAddress.address.scriptPubkey();
+      // print("   - Change script generated from index 0");
 
-      // final internalWalletPolicy = wallet.policies(KeychainKind.internalChain);
+      // print("📋 Getting wallet policies...");
       final Policy externalWalletPolicy =
-          wallet.policies(KeychainKind.externalChain)!;
+          wallet.policies(KeychainKind.external_)!;
+      // print("   ✓ External policy retrieved");
 
-      // print(externalWalletPolicy.contribution());
-
-      // printPrettyJson(internalWalletPolicy!.asString());
-      // printPrettyJson(externalWalletPolicy.asString());
-
-      // const String targetFingerprint = "fb94d032";
-
+      // print("🔍 Parsing policy JSON...");
       final Map<String, dynamic> policy = jsonDecode(
         externalWalletPolicy.asString(),
       );
+      // print("   ✓ Policy JSON decoded");
 
+      // print("🛣️ Extracting all paths to fingerprint: $targetFingerprint");
       final path = extractAllPathsToFingerprint(policy, targetFingerprint);
-
-      // print(path);
+      // print("   ✓ Paths extracted");
+      // print("   - Number of paths: ${path.length}");
 
       if (_isImmediateMultisig(correctPath)) {
-        // First Path: Direct MULTISIG
+        // print("🔐 MULTISIG PATH DETECTED - Building policy path for multisig");
         multiSigPath = {
           for (int i = 0; i < path[0]["ids"].length - 1; i++)
             path[0]["ids"][i]: Uint32List.fromList([path[0]["indexes"][i]]),
         };
-
-        // print("Generated multiSigPath: $multiSigPath");
+        // print("   ✓ MultiSig path generated: $multiSigPath");
       } else {
+        // print("⏰ TIMELOCK PATH DETECTED - Building policy path for timelock");
+        // print("   - Using chosenPath index: $chosenPath");
         timeLockPath = {
           for (int i = 0; i < path[chosenPath]["ids"].length - 1; i++)
             path[chosenPath]["ids"][i]: Uint32List.fromList(
-              i ==
-                      path[chosenPath]["ids"].length -
-                          2 // Check if it's the second-to-last item
-                  ? [0, 1] // Select both indexes for the last `THRESH` node
+              i == path[chosenPath]["ids"].length - 2
+                  ? [0, 1]
                   : [path[chosenPath]["indexes"][i]],
             ),
         };
-
-        // print("Generated timeLockPath: $timeLockPath");
+        // print("   ✓ TimeLock path generated: $timeLockPath");
       }
 
-      // Build the transaction:
-      (PartiallySignedTransaction, TransactionDetails) txBuilderResult;
-
-      // await syncWallet(wallet);
+      final Psbt txBuilderResult;
 
       if (isSendAllBalance) {
-        // print(internalChangeAddress.address.asString());
-        // print('AmountSendAll: ${amount.toInt()}');
+        // print("💰💰 SEND ALL BALANCE MODE - Attempting to send full balance");
         try {
           if (_isImmediateMultisig(correctPath)) {
-            // print('multisig');
-            await txBuilder
-                .addRecipient(recipientScript, amount)
-                .policyPath(KeychainKind.internalChain, multiSigPath!)
-                .policyPath(KeychainKind.externalChain, multiSigPath)
-                .feeRate(feeRate)
+            // print("   - Using MULTISIG for send-all");
+            txBuilder
+                .addRecipient(recipientScript, Amount.fromSat(amount))
+                .policyPath(multiSigPath!, KeychainKind.internal)
+                .policyPath(multiSigPath, KeychainKind.external_)
+                .feeRate(FeeRate.fromSatPerVb(feeRate.toInt()))
                 .finish(wallet);
           } else {
-            // print('timelock');
-            // print(timeLockPath);
-            await txBuilder
-                .addRecipient(recipientScript, amount)
-                .policyPath(KeychainKind.internalChain, timeLockPath!)
-                .policyPath(KeychainKind.externalChain, timeLockPath)
-                .feeRate(feeRate)
+            // print("   - Using TIMELOCK for send-all");
+            txBuilder
+                .addRecipient(recipientScript, Amount.fromSat(amount))
+                .policyPath(timeLockPath!, KeychainKind.internal)
+                .policyPath(timeLockPath, KeychainKind.external_)
+                .feeRate(FeeRate.fromSatPerVb(feeRate.toInt()))
                 .finish(wallet);
           }
-
+          // print("   ✓ Send-all transaction built successfully");
           return amount.toString();
         } catch (e) {
-          print('Error: $e');
+          // print("❌❌ Send-all transaction FAILED");
+          // print("   - Error: $e");
+          // print("   - Error type: ${e.runtimeType}");
 
+          // print("📦 Fetching UTXOs for fallback calculation...");
           final utxos = await getUtxos();
-
-          // print('SpendingPaths');
-          // print(spendingPaths);
-          // print('Chosen Path');
-          // print(chosenPath);
+          // print("   ✓ Retrieved ${utxos.length} UTXOs");
 
           List<dynamic> spendableUtxos = [];
 
           if (_isImmediateMultisig(correctPath)) {
+            // print("   - MULTISIG: Using all UTXOs as spendable");
             spendableUtxos = utxos;
           } else {
-            // print(chosenPath);
-            // print(spendingPaths);
-
+            // print("   - TIMELOCK: Filtering spendable UTXOs by timelock");
             final timelock = spendingPaths[chosenPath]['timelock'];
-            // print('Timelock value: $timelock');
+            // print("     - Timelock value: $timelock");
 
             int currentHeight = await fetchCurrentBlockHeight();
-            // print('Current block height: $currentHeight');
+            // print("     - Current block height: $currentHeight");
 
             final type =
                 spendingPaths[chosenPath]['type'].toString().toLowerCase();
+            // print("     - Timelock type: $type");
 
             spendableUtxos = utxos.where((utxo) {
               final blockHeight = utxo['status']['block_height'];
-              // print(
-              //     'Evaluating UTXO: txid=${utxo['txid']}, blockHeight=$blockHeight');
 
               bool isSpendable = false;
-
               if (type.contains('relativetimelock')) {
                 isSpendable = blockHeight != null &&
                     (blockHeight + timelock - 1 <= currentHeight ||
@@ -2286,86 +2478,79 @@ class WalletService extends ChangeNotifier {
               } else if (type.contains('absolutetimelock')) {
                 isSpendable = timelock <= currentHeight;
               } else {
-                // If there's no timelock type, consider it spendable by default
                 isSpendable = true;
               }
 
-              // print('Is spendable: $isSpendable');
               return isSpendable;
             }).toList();
-
-            // print('Spendable UTXOs found: ${spendableUtxos.length}');
-            // for (var spendableUtxo in spendableUtxos) {
-            //   print(
-            //     'Spendable UTXO: txid=${spendableUtxo['txid']}, blockHeight=${spendableUtxo['status']['block_height']}',
-            //   );
-            // }
+            // print(
+            //     "     ✓ Found ${spendableUtxos.length} spendable UTXOs after filtering");
           }
 
-          // Sum the value of spendable UTXOs
           final totalSpendableBalance = spendableUtxos.fold<int>(
             0,
             (sum, utxo) => sum + (int.parse(utxo['value'].toString())),
           );
+          // print("   - Total spendable balance: $totalSpendableBalance sats");
 
-          // print('totalSpendableBalance: $totalSpendableBalance');
-          // for (var spendableUtxo in spendableUtxos) {
-          //   print("Spendable Outputs: ${spendableUtxo['txid']}");
-          // }
-          // Handle insufficient funds
-          if (e.toString().contains("InsufficientFundsException")) {
-            print(e);
-            final RegExp regex = RegExp(r'Needed: (\d+), Available: (\d+)');
+          if (e.toString().contains("Insufficient funds:")) {
+            // More flexible regex that extracts both BTC amounts
+            final RegExp regex =
+                RegExp(r'([\d.]+)\s*BTC\s+available.*?([\d.]+)\s*BTC\s+needed');
             final match = regex.firstMatch(e.toString());
+
             if (match != null) {
-              final int neededAmount = int.parse(match.group(1)!);
-              final int availableAmount = int.parse(match.group(2)!);
+              final double availableBTC = double.parse(match.group(1)!);
+              final double neededBTC = double.parse(match.group(2)!);
+
+              final int availableAmount = (availableBTC * 100000000).round();
+              final int neededAmount = (neededBTC * 100000000).round();
+
               final int fee = neededAmount - availableAmount;
               final int sendAllBalance = totalSpendableBalance - fee;
 
               if (sendAllBalance > 0) {
-                return sendAllBalance
-                    .toString(); // Return adjusted send all balance
+                return sendAllBalance.toString();
               } else {
                 throw Exception('No balance available after fee deduction');
               }
             } else {
-              throw Exception('Failed to extract Needed amount from exception');
+              throw Exception(
+                  'Failed to extract amounts from exception: ${e.toString()}');
             }
           } else {
-            rethrow; // Re-throw unhandled exceptions
+            rethrow;
           }
         }
       }
-      // print('Spending: $amount');
-      // print('LocalUtxos: $localUtxos');
 
+      // print("📦 Fetching UTXOs for transaction...");
       final utxos = localUtxos ?? await getUtxos();
-
-      // spendingPaths = extractAllPaths(policy);
+      // print("   ✓ Retrieved ${utxos.length} UTXOs");
 
       if (_isImmediateMultisig(correctPath)) {
+        // print("🔐 MULTISIG: Converting all UTXOs to OutPoints");
         spendableOutpoints = utxos
-            .map((utxo) => OutPoint(txid: utxo['txid'], vout: utxo['vout']))
+            .map(
+                (utxo) => OutPoint(Txid.fromString(utxo['txid']), utxo['vout']))
             .toList();
+        // print("   ✓ Created ${spendableOutpoints.length} spendable OutPoints");
       } else {
-        // print(spendingPaths);
-
+        // print("⏰ TIMELOCK: Filtering spendable UTXOs by timelock condition");
         final timelock = spendingPaths[chosenPath]['timelock'];
-        // print('Timelock value: $timelock');
+        // print("   - Timelock value: $timelock");
 
         final type = spendingPaths[chosenPath]['type'].toString().toLowerCase();
+        // print("   - Timelock type: $type");
 
         int currentHeight = await fetchCurrentBlockHeight();
-        // print('Current block height: $currentHeight');
+        // print("   - Current block height: $currentHeight");
 
-        // Filter spendable UTXOs
         spendableOutpoints = utxos
             .where((utxo) {
               final blockHeight = utxo['status']['block_height'];
 
               bool isSpendable = false;
-
               if (type.contains('relativetimelock')) {
                 isSpendable = blockHeight != null &&
                     (blockHeight + timelock - 1 <= currentHeight ||
@@ -2373,160 +2558,111 @@ class WalletService extends ChangeNotifier {
               } else if (type.contains('absolutetimelock')) {
                 isSpendable = timelock <= currentHeight;
               } else {
-                // No timelock type; assume spendable
                 isSpendable = true;
               }
 
-              // print(
-              //   'Evaluating UTXO: txid=${utxo['txid']}, blockHeight=$blockHeight, isSpendable=$isSpendable',
-              // );
-
               return isSpendable;
             })
-            .map((utxo) => OutPoint(txid: utxo['txid'], vout: utxo['vout']))
+            .map(
+                (utxo) => OutPoint(Txid.fromString(utxo['txid']), utxo['vout']))
             .toList();
+        // print(
+        //     "   ✓ Filtered to ${spendableOutpoints.length} spendable OutPoints");
       }
 
       if (_isImmediateMultisig(correctPath)) {
-        // print('MultiSig Builder');
-
-        // for (var spendableOutpoint in spendableOutpoints) {
-        //   print('Spendable Outputs: ${spendableOutpoint.txid}');
-        // }
-        try {
-          txBuilder = txBuilder.addUtxos(spendableOutpoints);
-        } catch (e) {
-          print('❌ Error in addUtxos: $e');
-          rethrow;
-        }
+        // print("🔐 MULTISIG: Building transaction with policy paths");
 
         try {
-          txBuilder = txBuilder.manuallySelectedOnly();
+          txBuilderResult = txBuilder
+              // .addUtxos(spendableOutpoints)
+              // .manuallySelectedOnly()
+              .addRecipient(recipientScript, Amount.fromSat(amount))
+              .drainWallet()
+              .policyPath(multiSigPath!, KeychainKind.internal)
+              .policyPath(multiSigPath, KeychainKind.external_)
+              .feeRate(FeeRate.fromSatPerVb(feeRate.toInt()))
+              .drainTo(changeScript)
+              .finish(wallet);
         } catch (e) {
-          print('❌ Error in manuallySelectedOnly: $e');
+          print('❌ Error in transaction building: $e');
           rethrow;
         }
-
-        try {
-          txBuilder = txBuilder.addRecipient(recipientScript, amount);
-        } catch (e) {
-          print('❌ Error in addRecipient: $e');
-          rethrow;
-        }
-
-        try {
-          txBuilder = txBuilder.drainWallet();
-        } catch (e) {
-          print('❌ Error in drainWallet: $e');
-          rethrow;
-        }
-
-        try {
-          txBuilder =
-              txBuilder.policyPath(KeychainKind.internalChain, multiSigPath!);
-        } catch (e) {
-          print('❌ Error in policyPath (internal): $e');
-          rethrow;
-        }
-
-        try {
-          txBuilder =
-              txBuilder.policyPath(KeychainKind.externalChain, multiSigPath);
-        } catch (e) {
-          print('❌ Error in policyPath (external): $e');
-          rethrow;
-        }
-
-        try {
-          txBuilder = txBuilder.feeRate(feeRate);
-        } catch (e) {
-          print('❌ Error in feeRate: $e');
-          rethrow;
-        }
-
-        try {
-          txBuilder = txBuilder.drainTo(changeScript);
-        } catch (e) {
-          print('❌ Error in drainTo: $e');
-          rethrow;
-        }
-
-        try {
-          txBuilderResult = await txBuilder.finish(wallet);
-        } catch (e) {
-          print('❌ Error in finish(): $e');
-          rethrow;
-        }
-
-        // print('Transaction Built');
       } else {
-        // print('TimeLock Builder');
-        // for (var spendableOutpoint in spendableOutpoints) {
-        //   print('Spendable Outputs: ${spendableOutpoint.txid}');
-        // }
+        // print("⏰ TIMELOCK: Building transaction with timelock policy paths");
 
-        // print('Sending: $amount');
-        txBuilderResult = await txBuilder
-            // .enableRbf()
-            // .enableRbfWithSequence(olderValue)
-            .addUtxos(spendableOutpoints)
-            .manuallySelectedOnly()
-            .addRecipient(recipientScript, amount) // Send to recipient
-            .drainWallet() // Drain all wallet UTXOs, sending change to a custom address
-            .policyPath(KeychainKind.internalChain, timeLockPath!)
-            .policyPath(KeychainKind.externalChain, timeLockPath)
-            .feeRate(feeRate) // Set the fee rate (in satoshis per byte)
-            .drainTo(changeScript) // Specify the address to send the change
-            .finish(wallet); // Finalize the transaction with wallet's UTXOs
-
-        // print('Transaction Built');
+        // print("   - Building complete transaction in one chain...");
+        txBuilderResult = txBuilder
+            // .addUtxos(spendableOutpoints)
+            // .manuallySelectedOnly()
+            .addRecipient(recipientScript, Amount.fromSat(amount))
+            .drainWallet()
+            .policyPath(timeLockPath!, KeychainKind.internal)
+            .policyPath(timeLockPath, KeychainKind.external_)
+            .feeRate(FeeRate.fromSatPerVb(feeRate.toInt()))
+            .drainTo(changeScript)
+            .finish(wallet);
+        // print("   ✓ Transaction built successfully");
       }
 
+      // print("✍️ Signing transaction...");
       try {
         final signed = wallet.sign(
-          psbt: txBuilderResult.$1,
-          signOptions: const SignOptions(
-            trustWitnessUtxo: false,
-            allowAllSighashes: true,
-            removePartialSigs: true,
-            tryFinalize: true,
-            signWithTapInternalKey: true,
-            allowGrinding: true,
+          txBuilderResult,
+          SignOptions(
+            false,
+            null,
+            true,
+            true,
+            true,
+            true,
           ),
         );
+        // print("   ✓ Signing complete. Signed: $signed");
 
         if (signed) {
-          // print('Signing returned true');
+          // print("   ✅ Transaction fully signed - ready for broadcast");
+          // print("   📤 Extracting transaction...");
+          final tx = txBuilderResult.extractTx();
+          // print("      ✓ Transaction extracted");
 
-          // printInChunks(txBuilderResult.$1.asString());
+          ElectrumClient? client;
+          bool broadcastSuccess = false;
 
-          // print('Sending');
-          final tx = txBuilderResult.$1.extractTx();
+          for (final server in electrumServers) {
+            // print("   🌐 Attempting broadcast to Electrum server: $server");
+            try {
+              // TODO: Helper to broadcast
+              client = ElectrumClient(server, null);
+              // final txid =
+              client.transactionBroadcast(tx);
+              // print("      ✅✅ BROADCAST SUCCESSFUL!");
+              // print("      📎 TXID: $txid");
+              broadcastSuccess = true;
+              break;
+            } catch (e) {
+              // print("      ❌ Broadcast failed for $server: $e");
+            } finally {
+              client?.dispose();
+              // print("      - Client disposed");
+            }
+          }
 
-          // for (var input in tx.input()) {
-          //   print("Input sequence number: ${input.previousOutput.txid}");
-          // }
+          if (!broadcastSuccess) {
+            // print("      ❌❌ All broadcast attempts failed");
+            throw Exception("Failed to broadcast to any Electrum server");
+          }
 
-          // final isLockTime = tx.isLockTimeEnabled();
-          // print('LockTime enabled: $isLockTime');
-
-          // final lockTime = tx.lockTime();
-          // print('LockTime: $lockTime');
-
-          await blockchain.broadcast(transaction: tx);
-          // print('Transaction sent');
-
+          // print("🏁 Transaction broadcast complete - returning null");
           return null;
         } else {
-          // print('Signing returned false');
+          // print("   ⚠️ Transaction partially signed - returning PSBT");
+          final psbtString = txBuilderResult.serialize();
+          // print("      - PSBT length: ${psbtString.length} chars");
+          // print(
+          //     "      - PSBT preview: ${psbtString.substring(0, min(50, psbtString.length))}...");
 
-          // printInChunks(txBuilderResult.$1.asString());
-
-          final psbtString = base64Encode(txBuilderResult.$1.serialize());
-
-          // print(psbtString);
-
-          // print('CorrectPath: $correctPath');
+          // print("   🛣️ Correct path: $correctPath");
 
           final jsonContent = {
             "psbt": psbtString,
@@ -2534,28 +2670,32 @@ class WalletService extends ChangeNotifier {
           };
 
           final jsonString = jsonEncode(jsonContent);
-
+          // print("      ✓ JSON encoded, length: ${jsonString.length} chars");
+          // print("🏁 Returning PSBT JSON string");
           return jsonString;
         }
       } catch (broadcastError) {
-        print("Broadcasting error: ${broadcastError.toString()}");
+        // print("   ❌❌ Broadcasting error: ${broadcastError.toString()}");
         throw Exception("Broadcasting error: ${broadcastError.toString()}");
       }
     } on Exception catch (e, stackTrace) {
-      print("Error: ${e.toString()}");
-      print('StackTrace: $stackTrace');
-
+      print("🔥🔥 EXCEPTION CAUGHT at top level:");
+      print("   - Error: ${e.toString()}");
+      print("   - StackTrace: $stackTrace");
       throw Exception("Error: ${e.toString()}");
     }
+    // finally {
+    //   print("🏁 ===== EXITING createPartialTx =====");
+    // }
   }
 
   Future<String?> createBackupTx(
     String descriptor,
     String mnemonic,
     String recipientAddressStr,
-    BigInt amount,
+    int amount,
     int? chosenPath,
-    BigInt avBalance, {
+    int avBalance, {
     bool isSendAllBalance = false,
     List<Map<String, dynamic>>? spendingPaths,
     double? customFeeRate,
@@ -2565,15 +2705,21 @@ class WalletService extends ChangeNotifier {
     Map<String, Uint32List>? timeLockPath;
 
     // print('Bool: $multiSig');
-    Mnemonic trueMnemonic = await Mnemonic.fromString(mnemonic);
+    Mnemonic trueMnemonic = Mnemonic.fromString(mnemonic);
+    DerivationPath hardenedDerivationPath;
 
-    final hardenedDerivationPath = await DerivationPath.create(
-      path: "m/84h/1h/0h",
-    );
+    if (settingsProvider.network == Network.bitcoin) {
+      if (oldCase) {
+        hardenedDerivationPath = DerivationPath("m/84h/1h/0h");
+      } else {
+        hardenedDerivationPath = DerivationPath("m/84h/0h/0h");
+      }
+    } else {
+      hardenedDerivationPath = DerivationPath("m/84h/1h/0h");
+    }
+    final receivingDerivationPath = DerivationPath("m/0");
 
-    final receivingDerivationPath = await DerivationPath.create(path: "m/0");
-
-    final (receivingSecretKey, receivingPublicKey) = await deriveDescriptorKeys(
+    final (receivingSecretKey, receivingPublicKey) = deriveDescriptorKeys(
       hardenedDerivationPath,
       receivingDerivationPath,
       trueMnemonic,
@@ -2583,7 +2729,7 @@ class WalletService extends ChangeNotifier {
 
     // Extract the content inside square brackets
     final RegExp regex = RegExp(r'\[([^\]]+)\]');
-    final Match? match = regex.firstMatch(receivingPublicKey.asString());
+    final Match? match = regex.firstMatch(receivingPublicKey.toString());
 
     final String targetFingerprint = match!.group(1)!.split('/')[0];
     // print("Fingerprint: $targetFingerprint");
@@ -2613,7 +2759,7 @@ class WalletService extends ChangeNotifier {
     final Balance utxos;
     // final List<LocalUtxo> unspent;
 
-    BigInt totalSpending;
+    int totalSpending;
 
     if (connectivityResult.contains(ConnectivityResult.none)) {
       if (!isSendAllBalance) {
@@ -2632,7 +2778,7 @@ class WalletService extends ChangeNotifier {
       }
     } else {
       await syncWallet(wallet);
-      utxos = wallet.getBalance();
+      utxos = wallet.balance();
       // print("Available UTXOs: ${utxos.confirmed}");
 
       if (!isSendAllBalance) {
@@ -2642,7 +2788,7 @@ class WalletService extends ChangeNotifier {
         // print("Total Spending: $totalSpending");
         // print("Confirmed Utxos: ${utxos.spendable}");
         // Check If there are enough funds available
-        if (utxos.spendable < totalSpending) {
+        if (utxos.trustedSpendable.toSat() < totalSpending) {
           // Exit early if no confirmed UTXOs are available
           throw Exception(
             "Not enough confirmed funds available. Please wait until your transactions confirm.",
@@ -2667,21 +2813,19 @@ class WalletService extends ChangeNotifier {
       // Build the transaction
       var txBuilder = TxBuilder();
 
-      final recipientAddress = await Address.fromString(
-        s: recipientAddressStr,
-        network: wallet.network(),
+      final recipientAddress = Address(
+        recipientAddressStr,
+        wallet.network(),
       );
       final recipientScript = recipientAddress.scriptPubkey();
 
-      var internalChangeAddress = wallet.getInternalAddress(
-        addressIndex: const AddressIndex.peek(index: 0),
-      );
+      var internalChangeAddress = wallet.peekAddress(KeychainKind.internal, 0);
 
       final changeScript = internalChangeAddress.address.scriptPubkey();
 
       // final internalWalletPolicy = wallet.policies(KeychainKind.internalChain);
       final Policy externalWalletPolicy =
-          wallet.policies(KeychainKind.externalChain)!;
+          wallet.policies(KeychainKind.external_)!;
 
       // print(externalWalletPolicy.contribution());
 
@@ -2722,7 +2866,7 @@ class WalletService extends ChangeNotifier {
       }
 
       // Build the transaction:
-      (PartiallySignedTransaction, TransactionDetails) txBuilderResult;
+      final Psbt txBuilderResult;
 
       // await syncWallet(wallet);
 
@@ -2731,19 +2875,19 @@ class WalletService extends ChangeNotifier {
         // print('AmountSendAll: ${amount.toInt()}');
         try {
           if (_isImmediateMultisig(correctPath)) {
-            await txBuilder
-                .addRecipient(recipientScript, amount)
-                .policyPath(KeychainKind.internalChain, multiSigPath!)
-                .policyPath(KeychainKind.externalChain, multiSigPath)
-                .feeRate(feeRate)
+            txBuilder
+                .addRecipient(recipientScript, Amount.fromSat(amount))
+                .policyPath(multiSigPath!, KeychainKind.internal)
+                .policyPath(multiSigPath, KeychainKind.external_)
+                .feeRate(FeeRate.fromSatPerVb(feeRate.toInt()))
                 .finish(wallet);
           } else {
             // print(timeLockPath);
-            await txBuilder
-                .addRecipient(recipientScript, amount)
-                .policyPath(KeychainKind.internalChain, timeLockPath!)
-                .policyPath(KeychainKind.externalChain, timeLockPath)
-                .feeRate(feeRate)
+            txBuilder
+                .addRecipient(recipientScript, Amount.fromSat(amount))
+                .policyPath(timeLockPath!, KeychainKind.internal)
+                .policyPath(timeLockPath, KeychainKind.external_)
+                .feeRate(FeeRate.fromSatPerVb(feeRate.toInt()))
                 .finish(wallet);
           }
 
@@ -2799,27 +2943,33 @@ class WalletService extends ChangeNotifier {
           //   print("Spendable Outputs: ${spendableUtxo['txid']}");
           // }
           // Handle insufficient funds
-          if (e.toString().contains("InsufficientFundsException")) {
-            print(e);
-            final RegExp regex = RegExp(r'Needed: (\d+), Available: (\d+)');
+          if (e.toString().contains("Insufficient funds:")) {
+            // More flexible regex that extracts both BTC amounts
+            final RegExp regex =
+                RegExp(r'([\d.]+)\s*BTC\s+available.*?([\d.]+)\s*BTC\s+needed');
             final match = regex.firstMatch(e.toString());
+
             if (match != null) {
-              final int neededAmount = int.parse(match.group(1)!);
-              final int availableAmount = int.parse(match.group(2)!);
+              final double availableBTC = double.parse(match.group(1)!);
+              final double neededBTC = double.parse(match.group(2)!);
+
+              final int availableAmount = (availableBTC * 100000000).round();
+              final int neededAmount = (neededBTC * 100000000).round();
+
               final int fee = neededAmount - availableAmount;
               final int sendAllBalance = totalSpendableBalance - fee;
 
               if (sendAllBalance > 0) {
-                return sendAllBalance
-                    .toString(); // Return adjusted send all balance
+                return sendAllBalance.toString();
               } else {
                 throw Exception('No balance available after fee deduction');
               }
             } else {
-              throw Exception('Failed to extract Needed amount from exception');
+              throw Exception(
+                  'Failed to extract amounts from exception: ${e.toString()}');
             }
           } else {
-            rethrow; // Re-throw unhandled exceptions
+            rethrow;
           }
         }
       }
@@ -2833,7 +2983,8 @@ class WalletService extends ChangeNotifier {
 
       if (_isImmediateMultisig(correctPath)) {
         spendableOutpoints = utxos
-            .map((utxo) => OutPoint(txid: utxo['txid'], vout: utxo['vout']))
+            .map(
+                (utxo) => OutPoint(Txid.fromString(utxo['txid']), utxo['vout']))
             .toList();
       } else {
         // print(spendingPaths);
@@ -2872,7 +3023,8 @@ class WalletService extends ChangeNotifier {
 
               return isSpendable;
             })
-            .map((utxo) => OutPoint(txid: utxo['txid'], vout: utxo['vout']))
+            .map(
+                (utxo) => OutPoint(Txid.fromString(utxo['txid']), utxo['vout']))
             .toList();
       }
 
@@ -2883,67 +3035,18 @@ class WalletService extends ChangeNotifier {
         //   print('Spendable Outputs: ${spendableOutpoint.txid}');
         // }
         try {
-          txBuilder = txBuilder.addUtxos(spendableOutpoints);
+          txBuilderResult = txBuilder
+              // .addUtxos(spendableOutpoints)
+              // .manuallySelectedOnly()
+              .addRecipient(recipientScript, Amount.fromSat(amount))
+              .drainWallet()
+              .policyPath(multiSigPath!, KeychainKind.internal)
+              .policyPath(multiSigPath, KeychainKind.external_)
+              .feeRate(FeeRate.fromSatPerVb(feeRate.toInt()))
+              .drainTo(changeScript)
+              .finish(wallet);
         } catch (e) {
-          print('❌ Error in addUtxos: $e');
-          rethrow;
-        }
-
-        try {
-          txBuilder = txBuilder.manuallySelectedOnly();
-        } catch (e) {
-          print('❌ Error in manuallySelectedOnly: $e');
-          rethrow;
-        }
-
-        try {
-          txBuilder = txBuilder.addRecipient(recipientScript, amount);
-        } catch (e) {
-          print('❌ Error in addRecipient: $e');
-          rethrow;
-        }
-
-        try {
-          txBuilder = txBuilder.drainWallet();
-        } catch (e) {
-          print('❌ Error in drainWallet: $e');
-          rethrow;
-        }
-
-        try {
-          txBuilder =
-              txBuilder.policyPath(KeychainKind.internalChain, multiSigPath!);
-        } catch (e) {
-          print('❌ Error in policyPath (internal): $e');
-          rethrow;
-        }
-
-        try {
-          txBuilder =
-              txBuilder.policyPath(KeychainKind.externalChain, multiSigPath);
-        } catch (e) {
-          print('❌ Error in policyPath (external): $e');
-          rethrow;
-        }
-
-        try {
-          txBuilder = txBuilder.feeRate(feeRate);
-        } catch (e) {
-          print('❌ Error in feeRate: $e');
-          rethrow;
-        }
-
-        try {
-          txBuilder = txBuilder.drainTo(changeScript);
-        } catch (e) {
-          print('❌ Error in drainTo: $e');
-          rethrow;
-        }
-
-        try {
-          txBuilderResult = await txBuilder.finish(wallet);
-        } catch (e) {
-          print('❌ Error in finish(): $e');
+          print('❌ Error in transaction building: $e');
           rethrow;
         }
 
@@ -2955,16 +3058,18 @@ class WalletService extends ChangeNotifier {
         // }
 
         // print('Sending: $amount');
-        txBuilderResult = await txBuilder
+        txBuilderResult = txBuilder
             // .enableRbf()
             // .enableRbfWithSequence(olderValue)
             // .addUtxos(spendableOutpoints)
             // .manuallySelectedOnly()
-            .addRecipient(recipientScript, amount) // Send to recipient
+            .addRecipient(
+                recipientScript, Amount.fromSat(amount)) // Send to recipient
             .drainWallet() // Drain all wallet UTXOs, sending change to a custom address
-            .policyPath(KeychainKind.internalChain, timeLockPath!)
-            .policyPath(KeychainKind.externalChain, timeLockPath)
-            .feeRate(feeRate) // Set the fee rate (in satoshis per byte)
+            .policyPath(timeLockPath!, KeychainKind.internal)
+            .policyPath(timeLockPath, KeychainKind.external_)
+            .feeRate(FeeRate.fromSatPerVb(
+                feeRate.toInt())) // Set the fee rate (in satoshis per byte)
             .drainTo(changeScript) // Specify the address to send the change
             .finish(wallet); // Finalize the transaction with wallet's UTXOs
 
@@ -2973,20 +3078,20 @@ class WalletService extends ChangeNotifier {
 
       try {
         wallet.sign(
-          psbt: txBuilderResult.$1,
-          signOptions: const SignOptions(
-            trustWitnessUtxo: false,
-            allowAllSighashes: true,
-            removePartialSigs: true,
-            tryFinalize: true,
-            signWithTapInternalKey: true,
-            allowGrinding: true,
+          txBuilderResult,
+          SignOptions(
+            false,
+            null,
+            true,
+            true,
+            true,
+            true,
           ),
         );
 
         // final psbtString = base64Encode(txBuilderResult.$1.serialize());
 
-        final tx = txBuilderResult.$1.extractTx();
+        final tx = txBuilderResult.extractTx();
 
         final serialized = tx.serialize();
 
@@ -3008,27 +3113,6 @@ class WalletService extends ChangeNotifier {
     }
   }
 
-  // TODO: Broadcast Backup TX
-  // Future<String?> broadcastBackupTx(String psbtString) async {
-  //   await blockchainInit();
-
-  //   final psbt = await PartiallySignedTransaction.fromString(psbtString);
-
-  //   // print('Sending');
-  //   final tx = psbt.extractTx();
-
-  //   // print('serialize');
-  //   // print(tx.serialize());
-
-  //   // print('tostring');
-  //   // printInChunks(tx.toString());
-
-  //   // await blockchain.broadcast(transaction: tx);
-  //   // print('Transaction sent');
-
-  //   return null;
-  // }
-
   // This method takes a PSBT, signs it with the second user and then broadcasts it
   Future<String?> signBroadcastTx(
     String psbtString,
@@ -3038,15 +3122,21 @@ class WalletService extends ChangeNotifier {
     // int? chosenPath,
     List<Map<String, dynamic>>? spendingPaths,
   ) async {
-    Mnemonic trueMnemonic = await Mnemonic.fromString(mnemonic);
+    Mnemonic trueMnemonic = Mnemonic.fromString(mnemonic);
+    DerivationPath hardenedDerivationPath;
 
-    final hardenedDerivationPath = await DerivationPath.create(
-      path: "m/84h/1h/0h",
-    );
+    if (settingsProvider.network == Network.bitcoin) {
+      if (oldCase) {
+        hardenedDerivationPath = DerivationPath("m/84h/1h/0h");
+      } else {
+        hardenedDerivationPath = DerivationPath("m/84h/0h/0h");
+      }
+    } else {
+      hardenedDerivationPath = DerivationPath("m/84h/1h/0h");
+    }
+    final receivingDerivationPath = DerivationPath("m/0");
 
-    final receivingDerivationPath = await DerivationPath.create(path: "m/0");
-
-    final (receivingSecretKey, receivingPublicKey) = await deriveDescriptorKeys(
+    final (receivingSecretKey, receivingPublicKey) = deriveDescriptorKeys(
       hardenedDerivationPath,
       receivingDerivationPath,
       trueMnemonic,
@@ -3077,34 +3167,26 @@ class WalletService extends ChangeNotifier {
             receivingSecretKey.toString(),
           );
 
-    printInChunks('Sending descriptor: $descriptor');
+    // printInChunks('Sending descriptor: $descriptor');
 
-    wallet = await Wallet.create(
-      descriptor: await Descriptor.create(
-        descriptor: descriptor,
-        network: settingsProvider.network,
-      ),
-      network: settingsProvider.network,
-      databaseConfig: const DatabaseConfig.memory(),
-    );
+    wallet = await createSharedWallet(descriptor);
 
     await syncWallet(wallet);
 
     // Convert the psbt String to a PartiallySignedTransaction
-    final psbt = await PartiallySignedTransaction.fromString(psbtString);
-
+    final psbt = Psbt(psbtString);
     // printInChunks('Transaction Not Signed: $psbt');
 
     try {
       final signed = wallet.sign(
-        psbt: psbt,
-        signOptions: const SignOptions(
-          trustWitnessUtxo: false,
-          allowAllSighashes: true,
-          removePartialSigs: true,
-          tryFinalize: true,
-          signWithTapInternalKey: true,
-          allowGrinding: true,
+        psbt,
+        SignOptions(
+          false,
+          null,
+          true,
+          true,
+          true,
+          true,
         ),
       );
       // printInChunks('Transaction Signed: $psbt');
@@ -3124,14 +3206,26 @@ class WalletService extends ChangeNotifier {
         // final currentHeight = await blockchain.getHeight();
         // print('Current height: $currentHeight');
 
-        await blockchain.broadcast(transaction: tx);
-        // print('Transaction sent');
-      } else {
-        // print('Signing returned false');
-        // throw Exception('Not signed');
+        ElectrumClient? client;
 
+        for (final server in electrumServers) {
+          try {
+            // Pick the right server for the network you're on
+            client = ElectrumClient(server, null);
+
+            final txid = client.transactionBroadcast(tx);
+
+            print("Broadcasted! txid: $txid");
+          } catch (e) {
+            print("Broadcast failed: $e");
+            rethrow;
+          } finally {
+            client?.dispose();
+          }
+        } // print('Transaction sent');
+      } else {
         final jsonContent = {
-          "psbt": psbt.asString(),
+          "psbt": psbt.serialize(),
           "spending_path": correctPath,
         };
 
@@ -3216,4 +3310,46 @@ class WalletService extends ChangeNotifier {
 // Used to generate a random SharedWallet descriptorName
 extension StringExtension on String {
   String capitalize() => this[0].toUpperCase() + substring(1);
+}
+
+String _bytesToHex(Uint8List bytes) {
+  final sb = StringBuffer();
+  for (final b in bytes) {
+    sb.write(b.toRadixString(16).padLeft(2, '0'));
+  }
+  return sb.toString();
+}
+
+extension TxDetailsToJson on TxDetails {
+  Map<String, dynamic> toJson() {
+    // print('[TX][JSON] Serializing txid: $txid');
+
+    Map<String, dynamic>? confirmationTime;
+
+    final cp = chainPosition;
+    if (cp is ConfirmedChainPosition) {
+      // print('[TX][JSON] Tx is CONFIRMED');
+      confirmationTime = {
+        "height": cp.confirmationBlockTime.blockId,
+        "timestamp": cp.confirmationBlockTime.confirmationTime,
+      };
+    } else {
+      // print('[TX][JSON] Tx is UNCONFIRMED');
+      confirmationTime = null;
+    }
+
+    final hex = _bytesToHex(tx.serialize());
+    // print('[TX][JSON] Raw hex length: ${hex.length}');
+
+    return {
+      "txid": txid.toString(),
+      "received": received.toSat(),
+      "sent": sent.toSat(),
+      "fee": fee?.toSat(),
+      "confirmationTime": confirmationTime,
+      "transaction": {
+        "hex": hex,
+      },
+    };
+  }
 }

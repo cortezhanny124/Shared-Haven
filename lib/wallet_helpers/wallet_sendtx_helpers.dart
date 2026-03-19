@@ -1,6 +1,6 @@
 import 'dart:convert';
 import 'dart:io';
-import 'package:bdk_flutter/bdk_flutter.dart';
+import 'package:bdk_dart/bdk.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_file_dialog/flutter_file_dialog.dart';
@@ -30,9 +30,10 @@ class WalletSendtxHelpers {
   final Wallet wallet;
   final String mnemonic;
   final bool mounted;
-  final BigInt avBalance;
+  final int avBalance;
   final void Function(String newAddress)? onNewAddressGenerated;
   Future<void> Function() syncWallet;
+  Set<String> myAddresses;
 
   TextEditingController? psbtController;
   TextEditingController? signingAmountController;
@@ -65,6 +66,7 @@ class WalletSendtxHelpers {
     required this.avBalance,
     required this.onNewAddressGenerated,
     required this.syncWallet,
+    required this.myAddresses,
 
     // SharedWallet Variables
     this.psbtController,
@@ -79,7 +81,8 @@ class WalletSendtxHelpers {
   });
 
   Future<void> sendTx(
-    bool isCreating, {
+    bool isCreating,
+    String address, {
     bool isFromSpendingPath = false,
     int? index,
     int? amount,
@@ -90,9 +93,9 @@ class WalletSendtxHelpers {
       return;
     }
 
-    String address = walletService.getAddress(wallet);
+    // String address = walletService.getAddress(wallet);
 
-    onNewAddressGenerated?.call(address);
+    // onNewAddressGenerated?.call(address);
 
     final extractedData =
         walletService.extractDataByFingerprint(policy!, myFingerPrint!);
@@ -142,9 +145,12 @@ class WalletSendtxHelpers {
           ),
         ];
       },
-    ).then((_) {
+    ).then((actionPerformed) {
       _resetForm();
-      syncWallet();
+
+      if (actionPerformed == true) {
+        syncWallet();
+      }
     });
   }
 
@@ -157,7 +163,7 @@ class WalletSendtxHelpers {
         descriptor.toString(),
         mnemonic,
         recipientController.text,
-        BigInt.from(amount),
+        amount,
         selectedIndex,
         avBalance,
         isSendAllBalance: true,
@@ -338,7 +344,7 @@ class WalletSendtxHelpers {
         if (isSingleWallet) {
           await walletService.sendSingleTx(
             recipientAddress,
-            BigInt.from(amount),
+            Amount.fromSat(amount),
             wallet,
             address,
             customFeeRate,
@@ -348,7 +354,7 @@ class WalletSendtxHelpers {
             descriptor.toString(),
             mnemonic,
             recipientAddress,
-            BigInt.from(amount),
+            amount,
             selectedIndex,
             avBalance,
             spendingPaths: spendingPaths,
@@ -357,11 +363,12 @@ class WalletSendtxHelpers {
           );
         }
 
-        Navigator.of(rootContext, rootNavigator: true).pop(); // Close loading
+        Navigator.of(rootContext, rootNavigator: true)
+            .pop(true); // Close loading
 
         if (result != null) await showPSBTDialog(result, rootContext);
 
-        Navigator.of(rootContext, rootNavigator: true).pop();
+        Navigator.of(rootContext, rootNavigator: true).pop(true);
 
         NotificationHelper.show(
           rootContext,
@@ -375,7 +382,7 @@ class WalletSendtxHelpers {
           await _decodePsbt(
             extractedData,
             setDialogState,
-            address,
+            myAddresses,
           );
 
           return;
@@ -426,7 +433,7 @@ class WalletSendtxHelpers {
           spendingPaths,
         );
 
-        Navigator.of(rootContext, rootNavigator: true).pop();
+        Navigator.of(rootContext, rootNavigator: true).pop(true);
 
         if (result != null) {
           await showPSBTDialog(result, rootContext);
@@ -436,7 +443,7 @@ class WalletSendtxHelpers {
                 .translate('transaction_signed'),
           );
         } else {
-          Navigator.of(rootContext, rootNavigator: true).pop();
+          Navigator.of(rootContext, rootNavigator: true).pop(true);
 
           NotificationHelper.show(
             rootContext,
@@ -446,7 +453,7 @@ class WalletSendtxHelpers {
         }
       }
     } catch (e, stack) {
-      Navigator.of(rootContext, rootNavigator: true).pop();
+      Navigator.of(rootContext, rootNavigator: true).pop(false);
 
       print(stack);
       print(e);
@@ -458,23 +465,13 @@ class WalletSendtxHelpers {
   Future<void> _decodePsbt(
     List<Map<String, dynamic>>? extractedData,
     void Function(void Function()) setDialogState,
-    String address, {
+    Set<String> myAddresses, {
     Map<String, dynamic>? path,
     bool flagField = true,
   }) async {
     try {
-      final psbt =
-          await PartiallySignedTransaction.fromString(psbtController!.text);
+      final psbt = Psbt(psbtController!.text);
       final tx = psbt.extractTx();
-
-      // if (extractedData != null) {
-      //   selectedPath = walletService.extractSpendingPathFromPsbt(
-      //     psbt,
-      //     extractedData,
-      //   );
-
-      //   selectedIndex = extractedData.indexOf(selectedPath!);
-      // }
 
       final signers = walletService.extractSignersFromPsbt(psbt);
       final aliases =
@@ -484,13 +481,32 @@ class WalletSendtxHelpers {
       Address? receiverAddress;
       int totalSpent = 0;
 
+      // print('=== Calculating total spent from outputs ===');
+      // print('Target address: $myAddresses');
+      // print('Total outputs to process: ${outputs.length}');
+
       for (final output in outputs) {
-        receiverAddress =
-            await walletService.getAddressFromScriptOutput(output);
-        if (receiverAddress.asString() != address) {
-          totalSpent += output.value.toInt();
+        // print('  --- Processing output ---');
+        // print('  Output value: ${output.value.toSat()} sats');
+
+        receiverAddress = walletService.getAddressFromScriptOutput(output);
+        // print('  Extracted address: $receiverAddress');
+
+        if (!myAddresses.contains(receiverAddress.toString())) {
+          // print('  ✅ Address is not in your wallet - adding to total spent');
+          totalSpent += output.value.toSat();
+          // print('  Added: ${output.value.toSat()} sats');
+          // print('  Running total spent: $totalSpent sats');
         }
+        // else {
+        //   print(
+        //       '  ❌ Address is in your wallet - skipping (this is change or self-payment)');
+        // }
+
+        // print('  -------------------------');
       }
+
+      // print('=== Final total spent: $totalSpent sats ===');
 
       setDialogState(() {
         selectedPath = path;
@@ -538,7 +554,7 @@ class WalletSendtxHelpers {
       }
 
       await walletService.syncWallet(wallet);
-      final availableBalance = wallet.getBalance().spendable;
+      final availableBalance = wallet.balance().trustedSpendable;
 
       final recipientAddress = recipientController.text;
       int sendAllBalance = 0;
@@ -556,7 +572,7 @@ class WalletSendtxHelpers {
           descriptor.toString(),
           mnemonic,
           recipientAddress,
-          availableBalance,
+          availableBalance.toSat(),
           selectedIndex,
           avBalance,
           isSendAllBalance: true,
@@ -1084,9 +1100,9 @@ class WalletSendtxHelpers {
                         // Kick off your PSBT decode flow
                         await _decodePsbt(
                           path: path,
-                          null, // capture from your State or pass in as param
+                          null,
                           setDialogState,
-                          address, // capture from your State or pass in as param
+                          myAddresses,
                           flagField: false,
                         );
                       } catch (e) {

@@ -2,7 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:flutter/material.dart';
-import 'package:bdk_flutter/bdk_flutter.dart';
+import 'package:bdk_dart/bdk.dart';
 import 'package:flutter_spinkit/flutter_spinkit.dart';
 import 'package:flutter_wallet/hive/wallet_data.dart';
 import 'package:flutter_wallet/languages/app_localizations.dart';
@@ -88,14 +88,14 @@ import 'package:provider/provider.dart';
 
 class SharedWallet extends StatefulWidget {
   final String descriptor;
-  final String mnemonic;
+  final String? mnemonic;
   final List<Map<String, String>> pubKeysAlias;
   final String? descriptorName;
 
   const SharedWallet({
     super.key,
     required this.descriptor,
-    required this.mnemonic,
+    this.mnemonic,
     required this.pubKeysAlias,
     this.descriptorName,
   });
@@ -218,14 +218,6 @@ class SharedWalletState extends State<SharedWallet> {
 
           // Check if the "descriptor" matches
           if (valueMap['descriptor'] == widget.descriptor) {
-            // print('Match found for key: $key');
-            // walletService.printInChunks('Matching Value: $value');
-
-            // final keyParts = key.split('_descriptor');
-            // final descriptorName = keyParts.length > 1
-            //     ? keyParts[1].replaceFirst('_', '')
-            //     : 'Unnamed Descriptor';
-
             setState(() {
               final newName = walletService.generateRandomName();
 
@@ -242,19 +234,12 @@ class SharedWalletState extends State<SharedWallet> {
               'pubKeysAlias': widget.pubKeysAlias,
             };
 
-            // walletService.printInChunks(newValueMap.toString());
-
-            // print('_descriptorName: $_descriptorName');
-
             final String newValue = jsonEncode(newValueMap);
 
             // Remove the old record and insert the updated one
             descriptorBox.delete(key); // Remove the old key-value pair
 
             descriptorBox.put(newKey, newValue); // Add the new key-value pair
-
-            // print('Updated key: $newKey');
-            // print('New value stored: $newValue');
 
             existingDescriptor = valueMap['descriptor'];
             break; // Stop iterating if a match is found
@@ -268,9 +253,6 @@ class SharedWalletState extends State<SharedWallet> {
         throw ('Value for key $key is null.');
       }
     }
-
-    // walletService.printInChunks(
-    //     'Retrieved descriptor: ${existingDescriptor!['descriptor']}');
 
     if (existingDescriptor != null) {
       // print('Wallet with this mnemonic already exists.');
@@ -293,23 +275,17 @@ class SharedWalletState extends State<SharedWallet> {
         _descriptor = widget.descriptor;
       });
 
-      for (int i = 0; i < 100; i++) {
-        final addressInfo = wallet.getAddress(
-          addressIndex: AddressIndex.peek(index: i),
-        );
-        myAddresses.add(addressInfo.address.toString());
-      }
+      final List<AddressInfo> addressList =
+          wallet.revealAddressesTo(KeychainKind.external_, 100);
 
-      String walletId = wallet
-          .getAddress(addressIndex: AddressIndex.peek(index: 0))
-          .address
-          .asString();
+      myAddresses.addAll(
+        addressList.map((ai) => ai.address.toString()),
+      );
 
-      // print(walletId);
+      String walletId =
+          wallet.peekAddress(KeychainKind.external_, 0).address.toString();
 
       _walletData = await _walletStorageService.loadWalletData(walletId);
-
-      // print('address: ${_walletData!.address}');
 
       if (_walletData != null) {
         // If offline data is available, use it to update the UI
@@ -326,6 +302,8 @@ class SharedWalletState extends State<SharedWallet> {
 
           _isLoading = false;
         });
+      } else {
+        await _checkInternetAndSync();
       }
     } catch (e, stackTrace) {
       print("Error creating or fetching balance for wallet: $stackTrace");
@@ -344,12 +322,12 @@ class SharedWalletState extends State<SharedWallet> {
 
       wallet = await walletService.createSharedWallet(widget.descriptor);
 
-      for (int i = 0; i < 100; i++) {
-        final addressInfo = wallet.getAddress(
-          addressIndex: AddressIndex.peek(index: i),
-        );
-        myAddresses.add(addressInfo.address.toString());
-      }
+      final List<AddressInfo> addressList =
+          wallet.revealAddressesTo(KeychainKind.external_, 100);
+
+      myAddresses.addAll(
+        addressList.map((ai) => ai.address.toString()),
+      );
 
       setState(() {
         isWalletInitialized = true;
@@ -369,7 +347,13 @@ class SharedWalletState extends State<SharedWallet> {
             : newName;
       });
 
-      final compositeKey = '${widget.mnemonic}_descriptor_$_descriptorName';
+      String compositeKey = "";
+
+      if (widget.mnemonic != null && widget.mnemonic!.isNotEmpty) {
+        compositeKey = '${widget.mnemonic}_descriptor_$_descriptorName';
+      } else {
+        compositeKey = await _generateReadOnlyKey();
+      }
 
       descriptorBox.put(compositeKey, combinedValue);
 
@@ -385,56 +369,106 @@ class SharedWalletState extends State<SharedWallet> {
     }
   }
 
+  Future<String> _generateReadOnlyKey() async {
+    final allKeys = descriptorBox.keys.toList();
+
+    final readOnlyNumbers = <int>[];
+
+    for (final key in allKeys) {
+      if (key is String && key.startsWith('read_only')) {
+        final parts = key.split('_');
+        if (parts.length >= 3) {
+          try {
+            final number = int.parse(parts[2]);
+            readOnlyNumbers.add(number);
+          } catch (e) {
+            print('Error parsing read-only key number: $e');
+          }
+        }
+      }
+    }
+
+    int nextNumber = 1;
+    if (readOnlyNumbers.isNotEmpty) {
+      readOnlyNumbers.sort();
+      nextNumber = readOnlyNumbers.last + 1;
+    }
+
+    final readOnlyKey = 'read_only_${nextNumber}_descriptor_$_descriptorName';
+    print('Generated read-only key: $readOnlyKey');
+
+    return readOnlyKey;
+  }
+
   /// Helper method to extract wallet policies and spending paths
   Future<void> _initializePage() async {
     try {
-      // Extract wallet policies
-      externalWalletPolicy = wallet.policies(KeychainKind.externalChain)!;
-      policy = jsonDecode(externalWalletPolicy.asString());
+      // Initialize variables outside the if block
 
-      // print('ciao');
-      // walletService.printInChunks(externalWalletPolicy.toString());
+      if (widget.mnemonic != null && widget.mnemonic!.isNotEmpty) {
+        // Extract wallet policies
+        externalWalletPolicy = wallet.policies(KeychainKind.external_)!;
+        policy = jsonDecode(externalWalletPolicy.asString());
 
-      // Convert mnemonic to object
-      Mnemonic trueMnemonic = await Mnemonic.fromString(widget.mnemonic);
+        // Convert mnemonic to object
+        Mnemonic trueMnemonic = Mnemonic.fromString(widget.mnemonic!);
 
-      // Define derivation paths
-      final hardenedDerivationPath =
-          await DerivationPath.create(path: "m/84h/1h/0h");
-      final receivingDerivationPath = await DerivationPath.create(path: "m/0");
+        // Define derivation paths
+        DerivationPath hardenedDerivationPath;
 
-      // Derive descriptor keys
-      final (receivingSecretKey, receivingPublicKey) =
-          await walletService.deriveDescriptorKeys(
-        hardenedDerivationPath,
-        receivingDerivationPath,
-        trueMnemonic,
-      );
+        if (settingsProvider.network == Network.bitcoin) {
+          hardenedDerivationPath = DerivationPath("m/84h/0h/0h");
+        } else {
+          hardenedDerivationPath = DerivationPath("m/84h/1h/0h");
+        }
+        final receivingDerivationPath = DerivationPath("m/0");
 
-      // print('pubkey: $receivingPublicKey');
+        // Derive descriptor keys
+        final (receivingSecretKey, receivingPublicKey) =
+            walletService.deriveDescriptorKeys(
+          hardenedDerivationPath,
+          receivingDerivationPath,
+          trueMnemonic,
+        );
 
-      // Extract fingerprint
-      final RegExp regex = RegExp(r'\[([^\]]+)\]');
-      final Match? match = regex.firstMatch(receivingPublicKey.asString());
+        // Extract fingerprint from receiving public key
+        final RegExp regex = RegExp(r'\[([^\]]+)\]');
+        final Match? match = regex.firstMatch(receivingPublicKey.toString());
 
-      // Extract spending paths
+        if (match != null) {
+          myFingerPrint = match.group(1)!.split('/')[0];
+          myPubKey = receivingPublicKey.toString();
+
+          // Get spending paths and alias
+          spendingPaths = walletService.extractAllPaths(policy);
+          mySpendingPaths =
+              walletService.extractDataByFingerprint(policy, myFingerPrint);
+
+          myAlias = walletService.getAliasesFromFingerprint(
+              widget.pubKeysAlias, [myFingerPrint]).first;
+
+          _pubKeyController.text = myPubKey;
+        } else {
+          throw Exception("Could not extract fingerprint from public key");
+        }
+      }
+
+      _convertCurrency();
+
+      // Update state with all variables
       setState(() {
-        spendingPaths = walletService.extractAllPaths(policy);
-        myFingerPrint = match!.group(1)!.split('/')[0];
-        myAlias = walletService.getAliasesFromFingerprint(
-            widget.pubKeysAlias, [myFingerPrint]).first;
-        mySpendingPaths =
-            walletService.extractDataByFingerprint(policy, myFingerPrint);
-        myPubKey = receivingPublicKey.toString();
-        _pubKeyController.text = myPubKey;
-
-        isInitialized = true; // Mark as loaded
+        if (widget.mnemonic != null && widget.mnemonic!.isNotEmpty) {
+          myFingerPrint = myFingerPrint;
+          myAlias = myAlias;
+          mySpendingPaths = mySpendingPaths;
+          myPubKey = myPubKey;
+        }
+        isInitialized = true;
       });
-
-      // print('myAlias: $myAlias');
-    } catch (e) {
-      // print("Error initializing spending paths: $e");
-      throw ("Error initializing spending paths: $e");
+    } catch (e, st) {
+      print('Error: $e');
+      print('Stack trace: $st');
+      throw Exception("Error initializing spending paths: $e");
     }
   }
 
@@ -459,7 +493,7 @@ class SharedWalletState extends State<SharedWallet> {
         AppLocalizations.of(rootContext)!.translate('connect_internet'),
         style: TextStyle(
           color: AppColors.text(context),
-          fontSize: 16,
+          fontSize: MediaQuery.textScalerOf(context).scale(16),
         ),
       ),
       actions: [
@@ -504,19 +538,17 @@ class SharedWalletState extends State<SharedWallet> {
       final blockTimestamp =
           await walletService.fetchBlockTimestamp(currentHeight);
 
-      // Resolve address locally
-      String nextAddress = address;
-      if (nextAddress.isEmpty) {
-        nextAddress = w
-            .getAddress(addressIndex: AddressIndex.peek(index: 0))
-            .address
-            .asString();
-      }
+      String nextAddress = w
+          .listUnusedAddresses(KeychainKind.external_)
+          .first
+          .address
+          .toString();
 
       final balance = await walletService.getBitcoinBalance(nextAddress);
 
       List<Map<String, dynamic>> transactions =
-          await walletService.getTransactions(nextAddress);
+          await walletService.getTransactions();
+
       transactions = walletService.sortTransactionsByConfirmations(
         transactions,
         currentHeight,
@@ -524,14 +556,14 @@ class SharedWalletState extends State<SharedWallet> {
 
       final walletUtxos = await walletService.getUtxos();
 
-      bool isAddressUsed =
-          transactions.any((tx) => isAddressinTransaction(tx, address));
-      if (isAddressUsed && !myAddresses.contains(address)) {
+      if (!myAddresses.contains(address)) {
         myAddresses.add(address);
       }
 
       // 2) Bail out safely if disposed
       if (!mounted) return;
+
+      _convertCurrency();
 
       // 3) Single, batched setState
       setState(() {
@@ -548,10 +580,21 @@ class SharedWalletState extends State<SharedWallet> {
       });
 
       // 4) Persist after UI update (or before, if you prefer atomic success)
-      await walletService.saveLocalData(w, _lastRefreshed!, myAddresses);
+      await walletService.saveLocalData(
+        wallet: w,
+        address: nextAddress,
+        currentHeight: currentHeight,
+        timestamp: blockTimestamp,
+        availableBalance: balance['confirmedBalance'] ?? 0,
+        ledgerBalance: balance['pendingBalance'] ?? 0,
+        transactions: transactions,
+        utxos: walletUtxos,
+        lastRefreshed: _lastRefreshed!,
+        myAddresses: myAddresses,
+      );
     } catch (e, stackTrace) {
-      debugPrint("Error during _syncWallet: $e");
-      debugPrint(stackTrace.toString());
+      print("Error during _syncWallet: $e");
+      print(stackTrace.toString());
 
       setState(() {
         _isSyncing = false;
@@ -607,7 +650,8 @@ class SharedWalletState extends State<SharedWallet> {
               SizedBox(height: 20),
               Text(
                 AppLocalizations.of(context)!.translate('setting_wallet'),
-                style: TextStyle(fontSize: 18),
+                style: TextStyle(
+                    fontSize: MediaQuery.textScalerOf(context).scale(18)),
               ),
             ],
           ),
@@ -617,6 +661,9 @@ class SharedWalletState extends State<SharedWallet> {
 
     // print('avBalance: $avBalance');
     // print('ledBalance: $ledBalance');
+
+    WalletButtonsHelper? walletButtonsHelper;
+    WalletSpendingPathHelpers? spendingHelper;
 
     final walletUiHelpers = WalletUiHelpers(
       address: address,
@@ -644,78 +691,81 @@ class SharedWalletState extends State<SharedWallet> {
       pubKeysAlias: widget.pubKeysAlias,
     );
 
-    final spendingHelper = WalletSpendingPathHelpers(
-      pubKeysAlias: widget.pubKeysAlias,
-      mySpendingPaths: mySpendingPaths,
-      spendingPaths: spendingPaths,
-      utxos: utxos,
-      currentHeight: _currentHeight,
-      walletService: walletService,
-      myAlias: myAlias,
-      context: context,
-      policy: policy,
-      amountController: _amountController,
-      recipientController: _recipientController,
-      mounted: mounted,
-      mnemonic: widget.mnemonic,
-      wallet: wallet,
-      address: address,
-      myFingerPrint: myFingerPrint,
-      descriptor: _descriptor,
-      avBalance: BigInt.from(avBalance),
-      onNewAddressGenerated: (newAddr) {
-        setState(() {
-          address = newAddr;
-        });
-      },
-      syncWallet: _syncWallet,
-    );
-
-    final walletButtonsHelper = WalletButtonsHelper(
-      context: context,
-      address: address,
-      isSingleWallet: false,
-      descriptor: _descriptor.toString(),
-      descriptorName: _descriptorName,
-      pubKeysAlias: widget.pubKeysAlias,
-      recipientController: _recipientController,
-      psbtController: _psbtController,
-      signingAmountController: _signingAmountController,
-      amountController: _amountController,
-      walletService: walletService,
-      policy: policy,
-      myFingerPrint: myFingerPrint,
-      currentHeight: _currentHeight,
-      utxos: utxos,
-      mySpendingPaths: mySpendingPaths,
-      spendingPaths: spendingPaths,
-      mnemonic: widget.mnemonic,
-      mounted: mounted,
-      signersList: signersList,
-      wallet: wallet,
-      myAlias: myAlias,
-      baseScaffoldKey: baseScaffoldKey,
-      avBalance: BigInt.from(avBalance),
-      myAddresses: myAddresses,
-      onNewAddressGenerated: (newAddr) {
-        setState(() {
-          address = newAddr;
-        });
-      },
-      syncWallet: _syncWallet,
-    );
+    if (widget.mnemonic != null && widget.mnemonic!.isNotEmpty) {
+      spendingHelper = WalletSpendingPathHelpers(
+        pubKeysAlias: widget.pubKeysAlias,
+        mySpendingPaths: mySpendingPaths,
+        spendingPaths: spendingPaths,
+        utxos: utxos,
+        currentHeight: _currentHeight,
+        walletService: walletService,
+        myAlias: myAlias,
+        context: context,
+        policy: policy,
+        amountController: _amountController,
+        recipientController: _recipientController,
+        mounted: mounted,
+        mnemonic: widget.mnemonic!,
+        wallet: wallet,
+        address: address,
+        myFingerPrint: myFingerPrint,
+        descriptor: _descriptor,
+        avBalance: avBalance,
+        onNewAddressGenerated: (newAddr) {
+          setState(() {
+            address = newAddr;
+          });
+        },
+        syncWallet: _syncWallet,
+        myAddresses: myAddresses,
+      );
+    }
+    if (widget.mnemonic != null && widget.mnemonic!.isNotEmpty) {
+      walletButtonsHelper = WalletButtonsHelper(
+        context: context,
+        address: address,
+        isSingleWallet: false,
+        descriptor: _descriptor.toString(),
+        descriptorName: _descriptorName,
+        pubKeysAlias: widget.pubKeysAlias,
+        recipientController: _recipientController,
+        psbtController: _psbtController,
+        signingAmountController: _signingAmountController,
+        amountController: _amountController,
+        walletService: walletService,
+        policy: policy,
+        myFingerPrint: myFingerPrint,
+        currentHeight: _currentHeight,
+        utxos: utxos,
+        mySpendingPaths: mySpendingPaths,
+        spendingPaths: spendingPaths,
+        mnemonic: widget.mnemonic!,
+        mounted: mounted,
+        signersList: signersList,
+        wallet: wallet,
+        myAlias: myAlias,
+        baseScaffoldKey: baseScaffoldKey,
+        avBalance: avBalance,
+        myAddresses: myAddresses,
+        onNewAddressGenerated: (newAddr) {
+          setState(() {
+            address = newAddr;
+          });
+        },
+        syncWallet: _syncWallet,
+      );
+    }
 
     return BaseScaffold(
       title: Text(
         _descriptorName,
-        style: TextStyle(fontSize: 18),
+        style: TextStyle(fontSize: MediaQuery.textScalerOf(context).scale(18)),
       ),
       key: baseScaffoldKey,
       body: Stack(
         children: [
           RefreshIndicator(
-            key:
-                _refreshIndicatorKey, // Assign the GlobalKey to RefreshIndicator
+            key: _refreshIndicatorKey,
             onRefresh: () async {
               // await walletService.getBitcoinBalance(address);
 
@@ -733,6 +783,8 @@ class SharedWalletState extends State<SharedWallet> {
                   _syncWallet,
                   connectivityResult,
                   context,
+                  getCurrentHeight: () => _currentHeight,
+                  getTransactions: () => _transactions,
                 );
               } catch (e) {
                 NotificationHelper.showError(context, message: 'syncing_error');
@@ -772,20 +824,22 @@ class SharedWalletState extends State<SharedWallet> {
                       ),
 
                       // Dynamic Spending Paths Box
-                      GestureDetector(
-                        onLongPress: () {
-                          final BaseScaffoldState? baseScaffoldState =
-                              baseScaffoldKey.currentState;
+                      if (widget.mnemonic != null &&
+                          widget.mnemonic!.isNotEmpty &&
+                          spendingHelper != null)
+                        GestureDetector(
+                          onLongPress: () {
+                            final BaseScaffoldState? baseScaffoldState =
+                                baseScaffoldKey.currentState;
 
-                          if (baseScaffoldState != null) {
-                            baseScaffoldState.updateAssistantMessage(
-                                context, 'assistant_shared_spending_path_box');
-                          }
-                        },
-                        child: spendingHelper.buildDynamicSpendingPaths(
-                          isInitialized,
+                            if (baseScaffoldState != null) {
+                              baseScaffoldState.updateAssistantMessage(context,
+                                  'assistant_shared_spending_path_box');
+                            }
+                          },
+                          child: spendingHelper
+                              .buildDynamicSpendingPaths(isInitialized),
                         ),
-                      ),
 
                       // Transactions Box
                       GestureDetector(
@@ -798,12 +852,12 @@ class SharedWalletState extends State<SharedWallet> {
                                 context, 'assistant_personal_transactions_box');
                           }
                         },
-                        child: walletUiHelpers.buildTransactionsBox(),
+                        child: walletUiHelpers.buildTransactionsBoxTest(),
                       ),
 
                       const SizedBox(height: 8),
 
-                      // // Multisig Box
+                      // Multisig Box
                       // walletUiHelpers.buildInfoBoxMultisig(
                       //   AppLocalizations.of(context)!.translate('multisig_tx'),
                       //   _txToSend != null
@@ -819,16 +873,19 @@ class SharedWalletState extends State<SharedWallet> {
                   ),
                 ),
                 // Buttons section pinned at the bottom
-                SafeArea(
-                  child: Padding(
-                    padding: const EdgeInsets.all(8.0),
-                    child: Column(
-                      children: [
-                        walletButtonsHelper.buildButtons(),
-                      ],
+                if (widget.mnemonic != null &&
+                    widget.mnemonic!.isNotEmpty &&
+                    walletButtonsHelper != null)
+                  SafeArea(
+                    child: Padding(
+                      padding: const EdgeInsets.all(8.0),
+                      child: Column(
+                        children: [
+                          walletButtonsHelper.buildButtons(),
+                        ],
+                      ),
                     ),
                   ),
-                ),
               ],
             ),
           ),

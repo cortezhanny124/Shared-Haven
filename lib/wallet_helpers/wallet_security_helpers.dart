@@ -41,7 +41,7 @@ class WalletSecurityHelpers {
                 AppLocalizations.of(rootContext)!
                     .translate('enter_6_digits_pin'),
                 style: TextStyle(
-                  fontSize: 16,
+                  fontSize: MediaQuery.textScalerOf(context).scale(16),
                   color: AppColors.text(context),
                 ),
                 textAlign: TextAlign.center,
@@ -136,7 +136,7 @@ class WalletSecurityHelpers {
             AppLocalizations.of(rootContext)!.translate('saved_mnemonic'),
             textAlign: TextAlign.center,
             style: TextStyle(
-              fontSize: 16,
+              fontSize: MediaQuery.textScalerOf(context).scale(16),
               color: AppColors.cardTitle(context),
             ),
           ),
@@ -176,7 +176,8 @@ class WalletSecurityHelpers {
                           savedMnemonic,
                           textAlign: TextAlign.center,
                           style: TextStyle(
-                            fontSize: 16,
+                            fontSize:
+                                MediaQuery.textScalerOf(context).scale(16),
                             color: AppColors.text(context),
                           ),
                         ),

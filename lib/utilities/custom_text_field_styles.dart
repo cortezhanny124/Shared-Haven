@@ -16,18 +16,18 @@ class CustomTextFieldStyles {
       labelText: labelText,
       floatingLabelBehavior: FloatingLabelBehavior.auto, // Auto-floating label
       labelStyle: TextStyle(
-        fontSize: 16.0,
+        fontSize: MediaQuery.textScalerOf(context).scale(16.0),
         fontWeight: FontWeight.bold,
         color: AppColors.primary(context),
       ),
       floatingLabelStyle: TextStyle(
-        fontSize: 14.0,
+        fontSize: MediaQuery.textScalerOf(context).scale(14.0),
         fontWeight: FontWeight.bold,
         color: AppColors.text(context),
       ),
       hintText: hintText,
       hintStyle: TextStyle(
-        fontSize: 14.0,
+        fontSize: MediaQuery.textScalerOf(context).scale(14.0),
         color: Colors.grey.opaque(0.8),
       ),
       filled: true,

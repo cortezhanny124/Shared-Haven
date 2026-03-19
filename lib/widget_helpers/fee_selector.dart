@@ -95,7 +95,7 @@ class _FeeSelectorState extends State<FeeSelector> {
       }
     } catch (e, st) {
       // Log the failure and switch to custom only because the API failed
-      debugPrint('Failed to load fees: $e\n$st');
+      print('Failed to load fees: $e\n$st');
 
       if (mounted) {
         setState(() {
@@ -167,7 +167,7 @@ class _FeeSelectorState extends State<FeeSelector> {
           AppLocalizations.of(rootContext)!.translate('select_custom_fee'),
           style: TextStyle(
             fontWeight: FontWeight.bold,
-            fontSize: 14,
+            fontSize: MediaQuery.textScalerOf(context).scale(14),
             color: AppColors.cardTitle(context),
           ),
         ),
@@ -198,7 +198,9 @@ class _FeeSelectorState extends State<FeeSelector> {
                   hintText: AppLocalizations.of(rootContext)!
                       .translate('enter_amount_sats'),
                 ),
-                style: TextStyle(fontSize: 13, color: AppColors.text(context)),
+                style: TextStyle(
+                    fontSize: MediaQuery.textScalerOf(context).scale(13),
+                    color: AppColors.text(context)),
                 keyboardType: TextInputType.number,
               ),
             ),

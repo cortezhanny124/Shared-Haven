@@ -48,7 +48,7 @@ class SpendingPathDetailsCard extends StatelessWidget {
             Text(
               AppLocalizations.of(rootContext)!.translate('spending_path'),
               style: TextStyle(
-                fontSize: 16,
+                fontSize: MediaQuery.textScalerOf(context).scale(16),
                 fontWeight: FontWeight.bold,
                 color: AppColors.text(context),
               ),
@@ -56,7 +56,9 @@ class SpendingPathDetailsCard extends StatelessWidget {
             const SizedBox(height: 8),
             RichText(
               text: TextSpan(
-                style: TextStyle(fontSize: 14, color: AppColors.text(context)),
+                style: TextStyle(
+                    fontSize: MediaQuery.textScalerOf(context).scale(14),
+                    color: AppColors.text(context)),
                 children: [
                   TextSpan(
                     text:

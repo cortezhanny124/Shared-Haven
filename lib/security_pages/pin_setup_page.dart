@@ -1,4 +1,4 @@
-import 'package:bdk_flutter/bdk_flutter.dart';
+import 'package:bdk_dart/bdk.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_wallet/languages/app_localizations.dart';
 import 'package:flutter_wallet/services/wallet_service.dart';
@@ -186,7 +186,7 @@ class PinSetupPageState extends State<PinSetupPage> {
                 Text(
                   AppLocalizations.of(context)!.translate('network'),
                   style: TextStyle(
-                    fontSize: 18,
+                    fontSize: MediaQuery.textScalerOf(context).scale(18),
                     fontWeight: FontWeight.bold,
                     color: AppColors.cardTitle(context),
                   ),
@@ -196,7 +196,7 @@ class PinSetupPageState extends State<PinSetupPage> {
 
                 DropdownButtonFormField<Network>(
                   key: _networkFieldKey,
-                  value: settingsProvider.network,
+                  initialValue: settingsProvider.network,
                   items: Network.values.where((network) {
                     return network == Network.bitcoin ||
                         network == Network.testnet;
@@ -284,7 +284,7 @@ class PinSetupPageState extends State<PinSetupPage> {
                 Text(
                   AppLocalizations.of(context)!.translate('language'),
                   style: TextStyle(
-                    fontSize: 18,
+                    fontSize: MediaQuery.textScalerOf(context).scale(18),
                     fontWeight: FontWeight.bold,
                     color: AppColors.cardTitle(context),
                   ),
@@ -293,7 +293,7 @@ class PinSetupPageState extends State<PinSetupPage> {
                 const SizedBox(height: 20),
 
                 DropdownButtonFormField<String>(
-                  value: settingsProvider.languageCode,
+                  initialValue: settingsProvider.languageCode,
                   items: languages.map((language) {
                     return DropdownMenuItem(
                       value: language,

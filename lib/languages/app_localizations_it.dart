@@ -204,7 +204,7 @@ const Map<String, String> localizedStringsIt = {
   'immediately_spend': 'Tu ({x}) puoi spendere immediatamente',
   'cannot_spend': 'Tu ({x}) non puoi spendere alcun sat in questo momento',
   'threshold_required':
-      '\n\nÈ richiesta una soglia di {x} su {y}. \nDevi coordinarti con queste chiavi',
+      '\nÈ richiesta una soglia di {x} su {y}. \nDevi coordinarti con queste chiavi',
   'spend_alone':
       '\nPuoi spendere da solo. \nQueste altre chiavi possono anche spendere indipendentemente: ',
   'spend_together': '\nDevi spendere insieme a: ',

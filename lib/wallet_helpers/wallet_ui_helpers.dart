@@ -1,6 +1,6 @@
 import 'dart:convert';
 import 'dart:io';
-import 'package:bdk_flutter/bdk_flutter.dart';
+import 'package:bdk_dart/bdk.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
@@ -14,7 +14,6 @@ import 'package:flutter_wallet/widget_helpers/custom_bottom_sheet.dart';
 import 'package:flutter_wallet/widget_helpers/notification_helper.dart';
 import 'package:flutter_wallet/wallet_helpers/wallet_security_helpers.dart';
 import 'package:flutter_wallet/wallet_helpers/wallet_transaction_helpers.dart';
-import 'package:lottie/lottie.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:shimmer/shimmer.dart';
 import 'package:flutter_wallet/utilities/app_colors.dart';
@@ -88,111 +87,216 @@ class WalletUiHelpers {
     bool showCopyButton = false,
     String? subtitle,
   }) {
-    // Determine color and sign
+    // Determine color and sign (unchanged)
     Color balanceColor = ledBalance > 0
         ? AppColors.primary(context)
         : (ledBalance < 0 ? Colors.red : Colors.grey);
 
     bool isDataAvailable = address.isNotEmpty;
 
+    final bool useSatsDisplay = avBalance <= 1000000;
+
+    // Convert to display-friendly string
+    String primaryDisplay = useSatsDisplay
+        ? '${avBalance.toString()} sats'
+        : '${UtilitiesService.formatBitcoinAmount(avBalance)} BTC';
+
+    // Secondary (fiat) value
+    String secondaryFiat =
+        '${avCurrencyBalance.toStringAsFixed(2)} ${settingsProvider.currency}';
+
+    // Led balance formatted with same sats/BTC logic
+    String ledDisplay = "";
+    if (ledBalance != 0) {
+      if (useSatsDisplay) {
+        ledDisplay = ledBalance > 0 ? "+ $ledBalance sats" : "$ledBalance sats";
+      } else {
+        ledDisplay = ledBalance > 0
+            ? "+ ${UtilitiesService.formatBitcoinAmount(ledBalance)} BTC"
+            : "${UtilitiesService.formatBitcoinAmount(ledBalance)} BTC";
+      }
+    }
+
     return StatefulBuilder(
       builder: (context, setDialogState) {
         return Card(
           margin: const EdgeInsets.symmetric(vertical: 8),
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(8.0), // Rounded corners
+            borderRadius: BorderRadius.circular(16.0),
+            side: BorderSide(
+              color: AppColors.cardTitle(context).opaque(0.18),
+              width: 1,
+            ),
           ),
-          elevation: 4, // Subtle shadow for depth
-          color: AppColors.gradient(context), // Match button background
+          elevation: 0,
+          color: AppColors.gradient(context),
           child: Padding(
             padding: const EdgeInsets.all(16.0),
             child: isDataAvailable
                 ? Column(
+                    mainAxisSize: MainAxisSize.min,
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      // Title
+                      // ---------- HEADER ----------
                       Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        crossAxisAlignment: CrossAxisAlignment.center,
                         children: [
-                          Text(
-                            title,
-                            style: TextStyle(
-                              fontSize: 18,
-                              fontWeight: FontWeight.bold,
-                              color: AppColors.cardTitle(context),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  title,
+                                  style: TextStyle(
+                                    fontSize: MediaQuery.textScalerOf(context)
+                                        .scale(18),
+                                    fontWeight: FontWeight.bold,
+                                    color: AppColors.cardTitle(context),
+                                  ),
+                                ),
+                                if (subtitle != null && subtitle.isNotEmpty)
+                                  Padding(
+                                    padding: const EdgeInsets.only(top: 2.0),
+                                    child: Text(
+                                      subtitle,
+                                      style: TextStyle(
+                                        fontSize:
+                                            MediaQuery.textScalerOf(context)
+                                                .scale(13),
+                                        color: AppColors.cardTitle(context)
+                                            .opaque(0.7),
+                                      ),
+                                    ),
+                                  ),
+                              ],
                             ),
                           ),
-                          Row(
-                            children: [
-                              GestureDetector(
-                                onLongPress: () {
-                                  final BaseScaffoldState? baseScaffoldState =
-                                      baseScaffoldKey.currentState;
+                          const SizedBox(width: 8),
+                          // Action icons in a small “toolbar”
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 8,
+                              vertical: 4,
+                            ),
+                            decoration: BoxDecoration(
+                              borderRadius: BorderRadius.circular(999),
+                              color: AppColors.cardTitle(context).opaque(0.08),
+                            ),
+                            child: Row(
+                              children: [
+                                GestureDetector(
+                                  onLongPress: () {
+                                    final BaseScaffoldState? baseScaffoldState =
+                                        baseScaffoldKey.currentState;
 
-                                  if (baseScaffoldState != null) {
-                                    baseScaffoldState.updateAssistantMessage(
-                                        context, 'assistant_private_data');
-                                  }
-                                },
-                                onTap: () {
-                                  securityHelper.showPinDialog(
-                                    'Your Private Data',
-                                    isSingleWallet: isSingleWallet,
-                                  );
-                                },
-                                child: Icon(
-                                  Icons.remove_red_eye,
-                                  color: AppColors.cardTitle(context),
-                                  size: 22,
+                                    if (baseScaffoldState != null) {
+                                      baseScaffoldState.updateAssistantMessage(
+                                        context,
+                                        'assistant_private_data',
+                                      );
+                                    }
+                                  },
+                                  onTap: () {
+                                    securityHelper.showPinDialog(
+                                      'Your Private Data',
+                                      isSingleWallet: isSingleWallet,
+                                    );
+                                  },
+                                  child: Icon(
+                                    Icons.remove_red_eye,
+                                    color: AppColors.cardTitle(context),
+                                    size: 20,
+                                  ),
                                 ),
-                              ),
-                              SizedBox(width: 10),
-                              GestureDetector(
-                                onLongPress: () {
-                                  final BaseScaffoldState? baseScaffoldState =
-                                      baseScaffoldKey.currentState;
+                                const SizedBox(width: 8),
+                                GestureDetector(
+                                  onLongPress: () {
+                                    final BaseScaffoldState? baseScaffoldState =
+                                        baseScaffoldKey.currentState;
 
-                                  if (baseScaffoldState != null) {
-                                    baseScaffoldState.updateAssistantMessage(
-                                        context, 'assistant_pub_key_data');
-                                  }
-                                },
-                                onTap: () {
-                                  _showPubKeyDialog();
-                                },
-                                child: Icon(
-                                  Icons.more_vert,
-                                  color: AppColors.cardTitle(context),
-                                  size: 22,
+                                    if (baseScaffoldState != null) {
+                                      baseScaffoldState.updateAssistantMessage(
+                                        context,
+                                        'assistant_pub_key_data',
+                                      );
+                                    }
+                                  },
+                                  onTap: () {
+                                    _showPubKeyDialog();
+                                  },
+                                  child: Icon(
+                                    Icons.more_vert,
+                                    color: AppColors.cardTitle(context),
+                                    size: 20,
+                                  ),
                                 ),
-                              ),
-                            ],
+                              ],
+                            ),
                           ),
                         ],
                       ),
-                      const SizedBox(height: 8),
 
-                      // First Section: Address (with Copy Button)
+                      const SizedBox(height: 12),
+                      Divider(
+                        height: 1,
+                        color: AppColors.text(context).opaque(0.12),
+                      ),
+                      const SizedBox(height: 10),
+
+                      // ---------- ADDRESS ----------
                       Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        crossAxisAlignment: CrossAxisAlignment.center,
                         children: [
                           Expanded(
-                            child: Text(
-                              address,
-                              style: TextStyle(
-                                fontSize: 16,
-                                color: AppColors.text(context),
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 12, vertical: 10),
+                              decoration: BoxDecoration(
+                                borderRadius: BorderRadius.circular(12),
+                                color: AppColors.text(context).opaque(0.04),
+                                border: Border.all(
+                                  color: AppColors.text(context).opaque(0.10),
+                                  width: 1,
+                                ),
                               ),
-                              overflow: TextOverflow.ellipsis,
+                              child: Row(
+                                children: [
+                                  Icon(
+                                    Icons.account_balance_wallet_rounded,
+                                    size: 18,
+                                    color: AppColors.text(context).opaque(0.7),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Expanded(
+                                    child: Text(
+                                      address,
+                                      style: TextStyle(
+                                        fontSize:
+                                            MediaQuery.textScalerOf(context)
+                                                .scale(14),
+                                        // monospace-ish feel for addresses
+                                        fontFeatures: const [
+                                          FontFeature.tabularFigures()
+                                        ],
+                                        color: AppColors.text(context),
+                                      ),
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                  ),
+                                ],
+                              ),
                             ),
                           ),
-                          if (showCopyButton) // Display copy button if true
-                            IconButton(
-                              icon: Icon(
-                                Icons.copy,
-                                color: AppColors.cardTitle(context),
+                          if (showCopyButton) ...[
+                            const SizedBox(width: 8),
+                            TextButton.icon(
+                              style: TextButton.styleFrom(
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 10, vertical: 8),
+                                minimumSize: const Size(0, 0),
+                                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                               ),
-                              tooltip: 'Copy to clipboard',
                               onPressed: () {
                                 UtilitiesService.copyToClipboard(
                                   context: context,
@@ -200,179 +304,229 @@ class WalletUiHelpers {
                                   messageKey: 'address_clipboard',
                                 );
                               },
+                              icon: Icon(
+                                Icons.copy_rounded,
+                                size: 16,
+                                color: AppColors.cardTitle(context),
+                              ),
+                              label: Text(
+                                AppLocalizations.of(context)!.translate('copy'),
+                                style: TextStyle(
+                                  fontSize: MediaQuery.textScalerOf(context)
+                                      .scale(12),
+                                  color: AppColors.cardTitle(context),
+                                ),
+                              ),
                             ),
+                          ],
                         ],
                       ),
 
-                      // Divider Between Sections
-                      const Divider(
-                        height: 20,
-                        thickness: 1,
-                        color: Colors.grey,
+                      const SizedBox(height: 10),
+                      Divider(
+                        height: 1,
+                        color: AppColors.text(context).opaque(0.08),
                       ),
+                      const SizedBox(height: 10),
 
-                      // Second Section Balance
+                      // ---------- BALANCE SECTION ----------
                       GestureDetector(
                         onTap: onTap,
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Text(
-                              AppLocalizations.of(context)!
-                                  .translate('balance'),
-                              style: TextStyle(
-                                color: AppColors.cardTitle(context),
-                                fontSize: 16,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                            const SizedBox(height: 8),
-                            Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Row(
-                                  children: [
-                                    Expanded(
-                                      child: Row(
-                                        children: [
-                                          showInSatoshis
-                                              ? Text(
-                                                  UtilitiesService
-                                                      .formatBitcoinAmount(
-                                                          avBalance),
-                                                  style: TextStyle(
-                                                    color:
-                                                        AppColors.text(context),
-                                                    fontSize: 16,
-                                                  ),
-                                                )
-                                              : Text.rich(
-                                                  TextSpan(
-                                                    text:
-                                                        '${avCurrencyBalance.toStringAsFixed(2)} ',
-                                                    style: TextStyle(
-                                                      fontSize: 16,
-                                                      color: AppColors.text(
-                                                          context),
-                                                      decoration: TextDecoration
-                                                          .lineThrough,
-                                                    ),
-                                                    children: [
-                                                      TextSpan(
-                                                        text: settingsProvider
-                                                            .currency,
-                                                      ),
-                                                    ],
-                                                  ),
-                                                ),
-                                          const SizedBox(width: 8),
-                                          ledBalance != 0
-                                              ? showInSatoshis
-                                                  ? Text(
-                                                      ledBalance > 0
-                                                          ? '+ ${UtilitiesService.formatBitcoinAmount(ledBalance)}'
-                                                          : UtilitiesService
-                                                              .formatBitcoinAmount(
-                                                                  ledBalance),
-                                                      style: TextStyle(
-                                                        color: balanceColor,
-                                                        fontWeight:
-                                                            FontWeight.bold,
-                                                        fontSize: 16,
-                                                      ),
-                                                    )
-                                                  : Text.rich(
-                                                      TextSpan(
-                                                        text: ledBalance > 0
-                                                            ? '+ ${ledCurrencyBalance.toStringAsFixed(2)}'
-                                                            : ledCurrencyBalance
-                                                                .toStringAsFixed(
-                                                                    2),
-                                                        style: TextStyle(
-                                                          decoration:
-                                                              TextDecoration
-                                                                  .lineThrough,
-                                                          color: balanceColor,
-                                                          fontWeight:
-                                                              FontWeight.bold,
-                                                          fontSize: 16,
-                                                        ),
-                                                        children: [
-                                                          TextSpan(
-                                                              text:
-                                                                  settingsProvider
-                                                                      .currency),
-                                                        ],
-                                                      ),
-                                                    )
-                                              : Text(''),
-                                        ],
+                        child: Container(
+                          padding: const EdgeInsets.all(16),
+                          decoration: BoxDecoration(
+                            borderRadius: BorderRadius.circular(14),
+                            color: AppColors.text(context).opaque(0.05),
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              // ---------------- PRIMARY ROW ----------------
+                              Row(
+                                mainAxisAlignment:
+                                    MainAxisAlignment.spaceBetween,
+                                children: [
+                                  // Left: Main balance (big)
+                                  Expanded(
+                                    child: Text(
+                                      primaryDisplay,
+                                      style: TextStyle(
+                                        fontSize:
+                                            MediaQuery.textScalerOf(context)
+                                                .scale(25),
+                                        fontWeight: FontWeight.bold,
+                                        color: AppColors.text(context),
                                       ),
                                     ),
-                                  ],
-                                )
-                              ],
-                            ),
-                          ],
+                                  ),
+
+                                  // Right: LED Badge
+                                  if (ledBalance != 0)
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 10,
+                                        vertical: 4,
+                                      ),
+                                      decoration: BoxDecoration(
+                                        borderRadius: BorderRadius.circular(8),
+                                        color: balanceColor.opaque(0.18),
+                                      ),
+                                      child: Text(
+                                        ledDisplay,
+                                        style: TextStyle(
+                                          color: balanceColor,
+                                          fontSize:
+                                              MediaQuery.textScalerOf(context)
+                                                  .scale(14),
+                                          fontWeight: FontWeight.w600,
+                                        ),
+                                      ),
+                                    ),
+                                ],
+                              ),
+
+                              const SizedBox(height: 6),
+
+                              // ---------------- SECONDARY ROW ----------------
+                              Row(
+                                mainAxisAlignment: MainAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    secondaryFiat,
+                                    style: TextStyle(
+                                      fontSize: MediaQuery.textScalerOf(context)
+                                          .scale(14),
+                                      decoration: settingsProvider.isTestnet
+                                          ? TextDecoration.lineThrough
+                                          : null,
+                                      color:
+                                          AppColors.text(context).opaque(0.6),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ],
+                          ),
                         ),
                       ),
 
-                      const Divider(
-                        height: 20,
-                        thickness: 1,
-                        color: Colors.grey,
+                      const SizedBox(height: 12),
+                      Divider(
+                        height: 1,
+                        color: AppColors.text(context).opaque(0.08),
                       ),
+                      const SizedBox(height: 10),
 
-                      // BlockHeight and TimeStamp
-
+                      // ---------- HEIGHT + TIMESTAMP + REFRESH ----------
                       Row(
                         crossAxisAlignment: CrossAxisAlignment.center,
                         children: [
                           Expanded(
-                            child: Text(
-                              '${AppLocalizations.of(context)!.translate('current_height')}: $currentHeight\n'
-                              '${AppLocalizations.of(context)!.translate('timestamp')}: $timeStamp',
-                              style: TextStyle(
-                                fontSize: 14,
-                                color: AppColors.text(context),
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 12, vertical: 10),
+                              decoration: BoxDecoration(
+                                borderRadius: BorderRadius.circular(12),
+                                color: AppColors.text(context).opaque(0.04),
+                              ),
+                              child: Row(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  // Height chip
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 10,
+                                      vertical: 6,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      borderRadius: BorderRadius.circular(999),
+                                      color:
+                                          AppColors.text(context).opaque(0.06),
+                                    ),
+                                    child: Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        Icon(
+                                          Icons.dashboard_rounded,
+                                          size: 14,
+                                          color: AppColors.text(context)
+                                              .opaque(0.8),
+                                        ),
+                                        const SizedBox(width: 6),
+                                        Text(
+                                          '${AppLocalizations.of(context)!.translate('block')}: $currentHeight',
+                                          style: TextStyle(
+                                            fontSize:
+                                                MediaQuery.textScalerOf(context)
+                                                    .scale(12),
+                                            color: AppColors.text(context)
+                                                .opaque(0.9),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+
+                                  const SizedBox(width: 8),
+
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 10,
+                                      vertical: 6,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      borderRadius: BorderRadius.circular(999),
+                                      color:
+                                          AppColors.text(context).opaque(0.03),
+                                    ),
+                                    child: Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        Icon(
+                                          Icons.access_time_rounded,
+                                          size: 14,
+                                          color: AppColors.text(context)
+                                              .opaque(0.8),
+                                        ),
+                                        const SizedBox(width: 6),
+                                        Text(
+                                          timeStamp,
+                                          style: TextStyle(
+                                            fontSize:
+                                                MediaQuery.textScalerOf(context)
+                                                    .scale(12),
+                                            color: AppColors.text(context)
+                                                .opaque(0.85),
+                                          ),
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ],
                               ),
                             ),
                           ),
-                          if (isRefreshing) ...[
-                            Column(
-                              children: [
-                                buildMiniRefreshingIndicator(),
-                                const SizedBox(height: 4),
-                                Text(
-                                  AppLocalizations.of(context)!
-                                      .translate('refreshing'),
-                                  style: TextStyle(
-                                    fontSize: 12,
-                                    color: AppColors.text(context),
-                                  ),
-                                ),
-                              ],
-                            ),
-                            const SizedBox(width: 10),
-                          ],
                         ],
                       ),
 
                       if (lastRefreshed != null)
-                        // RefreshIndicator
                         if (DateTime.now().difference(lastRefreshed!).inHours >=
                             2) ...[
                           const SizedBox(height: 8),
                           Text(
                             getTimeBasedMessage(),
                             style: TextStyle(
-                              fontSize: 14,
+                              fontSize:
+                                  MediaQuery.textScalerOf(context).scale(14),
                               fontWeight: FontWeight.bold,
                               color: AppColors.error(context),
                             ),
-                          ).animate().shake(duration: 800.ms), // Shake effect
-                        ]
+                          )
+                              .animate()
+                              .shake(duration: 800.ms), // same shake effect
+                        ],
                     ],
                   )
                 : _buildShimmerEffect(),
@@ -393,9 +547,7 @@ class WalletUiHelpers {
     }
   }
 
-  Widget buildTransactionsBox() {
-    // print('timestamp: $timeStamp');
-
+  Widget buildTransactionsBoxTest() {
     final transactionHelpers = WalletTransactionHelpers(
       context: context,
       currentHeight: currentHeight,
@@ -405,60 +557,307 @@ class WalletUiHelpers {
       myAddresses: myAddresses,
     );
 
+    final lastTwo = () {
+      if (transactions.isEmpty) return <dynamic>[];
+
+      final sorted = List.of(transactions);
+
+      sorted.sort((a, b) {
+        final at = a['timestamp'];
+        final bt = b['timestamp'];
+
+        final aTime = at is int ? at : int.tryParse(at.toString()) ?? 0;
+        final bTime = bt is int ? bt : int.tryParse(bt.toString()) ?? 0;
+
+        return bTime.compareTo(aTime);
+      });
+
+      return sorted.take(2).toList();
+    }();
+
+    final textTheme = Theme.of(context).textTheme;
+
     return Card(
       margin: const EdgeInsets.symmetric(vertical: 8),
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(8.0), // Rounded corners
+        borderRadius: BorderRadius.circular(16.0),
+        side: BorderSide(
+          color: AppColors.cardTitle(context).opaque(0.15),
+          width: 1,
+        ),
       ),
-      elevation: 4, // Subtle shadow for depth
-      color: AppColors.gradient(context), // Match button background
+      elevation: 0, // flatter, more modern
+      color: AppColors.gradient(context), // keep your brand style
       child: Padding(
         padding: const EdgeInsets.all(16.0),
         child: Column(
+          mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
-              '${transactions.length} ${AppLocalizations.of(context)!.translate('transactions')}',
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-                color: AppColors.cardTitle(context), // Match button text color
-              ),
-            ),
-            const SizedBox(height: 8),
-            isLoading
-                ? const Center(child: CircularProgressIndicator())
-                : transactions.isEmpty
-                    ? Text(AppLocalizations.of(context)!
-                        .translate('no_transactions_available'))
-                    : SizedBox(
-                        height: 310, // Define the height of the scrollable area
-                        child: ListView.builder(
-                          itemCount: transactions.length,
-                          itemBuilder: (context, index) {
-                            final tx = transactions[index];
+            // ---------- HEADER ----------
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                Column(
+                  children: [
+                    Icon(
+                      Icons.swap_vert_rounded,
+                      size: 20,
+                      color: AppColors.cardTitle(context),
+                    ),
 
-                            return KeyedSubtree(
-                              key: ValueKey(tx['txid']),
-                              child: GestureDetector(
-                                onTap: () {
-                                  transactionHelpers.showTransactionsDialog(
-                                    tx,
-                                  );
-                                },
-                                child: transactionHelpers.buildTransactionItem(
-                                  tx,
-                                ),
-                              ),
-                            );
-                          },
+                    // Count pill
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 10, vertical: 4),
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(999),
+                        color: AppColors.cardTitle(context).opaque(0.12),
+                      ),
+                      child: Text(
+                        '${transactions.length}',
+                        style: textTheme.labelMedium?.copyWith(
+                          fontWeight: FontWeight.w600,
+                          color: AppColors.cardTitle(context),
                         ),
                       ),
+                    ),
+                  ],
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        AppLocalizations.of(context)!.translate('transactions'),
+                        style: textTheme.titleMedium?.copyWith(
+                          fontWeight: FontWeight.w700,
+                          color: AppColors.cardTitle(context),
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        AppLocalizations.of(context)!
+                            .translate('showing_latest_transactions'),
+                        // add this key or replace with a literal like "Latest 2 transactions"
+                        style: textTheme.bodySmall?.copyWith(
+                          color: AppColors.cardTitle(context).opaque(0.7),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 4),
+                TextButton.icon(
+                  onPressed: showTransactionsBottomSheet,
+                  style: TextButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(horizontal: 8),
+                    minimumSize: const Size(0, 32),
+                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  ),
+                  icon: Icon(
+                    Icons.open_in_full_rounded,
+                    size: 18,
+                    color: AppColors.icon(context),
+                  ),
+                  label: Text(
+                    AppLocalizations.of(context)!.translate('view_all'),
+                    style: textTheme.labelMedium?.copyWith(
+                      fontWeight: FontWeight.w500,
+                      color: AppColors.icon(context),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+
+            const SizedBox(height: 12),
+            Divider(
+              height: 1,
+              color: AppColors.cardTitle(context).opaque(0.15),
+            ),
+            const SizedBox(height: 8),
+
+            // ---------- BODY ----------
+            if (isLoading)
+              const Center(
+                child: Padding(
+                  padding: EdgeInsets.symmetric(vertical: 24.0),
+                  child: CircularProgressIndicator(),
+                ),
+              )
+            else if (lastTwo.isEmpty)
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 8.0),
+                child: Text(
+                  AppLocalizations.of(context)!
+                      .translate('no_transactions_available'),
+                  style: textTheme.bodyMedium?.copyWith(
+                    color: AppColors.cardTitle(context).opaque(0.7),
+                  ),
+                ),
+              )
+            else
+              ListView.separated(
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                itemCount: lastTwo.length,
+                separatorBuilder: (_, __) => Divider(
+                  height: 3,
+                  color: AppColors.cardTitle(context).opaque(0.08),
+                ),
+                itemBuilder: (context, index) {
+                  final tx = lastTwo[index];
+
+                  return KeyedSubtree(
+                    key: ValueKey(tx['txid']),
+                    child: GestureDetector(
+                      onTap: () {
+                        transactionHelpers.showTransactionsDialog(tx);
+                      },
+                      child: transactionHelpers.buildTransactionItem(tx),
+                    ),
+                  );
+                },
+              ),
           ],
         ),
       ),
     );
   }
+
+  Future<void> showTransactionsBottomSheet() async {
+    final transactionHelpers = WalletTransactionHelpers(
+      context: context,
+      currentHeight: currentHeight,
+      address: address,
+      baseScaffoldKey: baseScaffoldKey,
+      settingsProvider: settingsProvider,
+      myAddresses: myAddresses,
+    );
+
+    return CustomBottomSheet.buildCustomStatefulBottomSheet(
+      context: context,
+      titleKey: 'transactions',
+      contentBuilder: (StateSetter setSheetState,
+          void Function(BuildContext, String) updateAssistantMessage) {
+        if (isLoading) {
+          return const Center(child: CircularProgressIndicator());
+        }
+
+        if (transactions.isEmpty) {
+          return Text(
+            AppLocalizations.of(context)!
+                .translate('no_transactions_available'),
+          );
+        }
+
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              '${transactions.length} '
+              '${AppLocalizations.of(context)!.translate('transactions')}',
+              style: TextStyle(
+                fontSize: MediaQuery.textScalerOf(context).scale(18),
+                fontWeight: FontWeight.bold,
+                color: AppColors.cardTitle(context),
+              ),
+            ),
+            const SizedBox(height: 8),
+            ListView.builder(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              itemCount: transactions.length,
+              itemBuilder: (context, index) {
+                final tx = transactions[index];
+
+                return KeyedSubtree(
+                  key: ValueKey(tx['txid']),
+                  child: GestureDetector(
+                    onTap: () {
+                      transactionHelpers.showTransactionsDialog(tx);
+                    },
+                    child: transactionHelpers.buildTransactionItem(tx),
+                  ),
+                );
+              },
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  // Widget buildTransactionsBox() {
+  //   // print('timestamp: $timeStamp');
+
+  //   final transactionHelpers = WalletTransactionHelpers(
+  //     context: context,
+  //     currentHeight: currentHeight,
+  //     address: address,
+  //     baseScaffoldKey: baseScaffoldKey,
+  //     settingsProvider: settingsProvider,
+  //     myAddresses: myAddresses,
+  //   );
+
+  //   return Card(
+  //     margin: const EdgeInsets.symmetric(vertical: 8),
+  //     shape: RoundedRectangleBorder(
+  //       borderRadius: BorderRadius.circular(8.0), // Rounded corners
+  //     ),
+  //     elevation: 4, // Subtle shadow for depth
+  //     color: AppColors.gradient(context), // Match button background
+  //     child: Padding(
+  //       padding: const EdgeInsets.all(16.0),
+  //       child: Column(
+  //         crossAxisAlignment: CrossAxisAlignment.start,
+  //         children: [
+  //           Text(
+  //             '${transactions.length} ${AppLocalizations.of(context)!.translate('transactions')}',
+  //             style: TextStyle(
+  //               fontSize: MediaQuery.textScalerOf(context).scale(18),
+  //               fontWeight: FontWeight.bold,
+  //               color: AppColors.cardTitle(context), // Match button text color
+  //             ),
+  //           ),
+  //           const SizedBox(height: 8),
+  //           isLoading
+  //               ? const Center(child: CircularProgressIndicator())
+  //               : transactions.isEmpty
+  //                   ? Text(
+  //                       AppLocalizations.of(context)!
+  //                           .translate('no_transactions_available'),
+  //                     )
+  //                   : SizedBox(
+  //                       height: 310, // Define the height of the scrollable area
+  //                       child: ListView.builder(
+  //                         itemCount: transactions.length,
+  //                         itemBuilder: (context, index) {
+  //                           final tx = transactions[index];
+
+  //                           return KeyedSubtree(
+  //                             key: ValueKey(tx['txid']),
+  //                             child: GestureDetector(
+  //                               onTap: () {
+  //                                 transactionHelpers.showTransactionsDialog(
+  //                                   tx,
+  //                                 );
+  //                               },
+  //                               child: transactionHelpers.buildTransactionItem(
+  //                                 tx,
+  //                               ),
+  //                             ),
+  //                           );
+  //                         },
+  //                       ),
+  //                     ),
+  //         ],
+  //       ),
+  //     ),
+  //   );
+  // }
 
   void _showPubKeyDialog() {
     final rootContext = context;
@@ -488,7 +887,7 @@ class WalletUiHelpers {
                     "${AppLocalizations.of(rootContext)!.translate('saved_pub_key')}: ",
                     textAlign: TextAlign.center,
                     style: TextStyle(
-                      fontSize: 16,
+                      fontSize: MediaQuery.textScalerOf(context).scale(16),
                       color: AppColors.cardTitle(context),
                     ),
                   ),
@@ -516,7 +915,8 @@ class WalletUiHelpers {
                               pubKeyController.text,
                               textAlign: TextAlign.center,
                               style: TextStyle(
-                                fontSize: 16,
+                                fontSize:
+                                    MediaQuery.textScalerOf(context).scale(16),
                                 color: AppColors.text(context),
                                 overflow: TextOverflow.ellipsis,
                               ),
@@ -547,7 +947,7 @@ class WalletUiHelpers {
                     "${AppLocalizations.of(rootContext)!.translate('saved_descriptor')}: ",
                     textAlign: TextAlign.center,
                     style: TextStyle(
-                      fontSize: 16,
+                      fontSize: MediaQuery.textScalerOf(context).scale(16),
                       color: AppColors.cardTitle(context),
                     ),
                   ),
@@ -576,7 +976,8 @@ class WalletUiHelpers {
                               descriptor.toString(),
                               textAlign: TextAlign.center,
                               style: TextStyle(
-                                fontSize: 16,
+                                fontSize:
+                                    MediaQuery.textScalerOf(context).scale(16),
                                 color: AppColors.text(context),
                               ),
                               overflow: TextOverflow.ellipsis,
@@ -752,8 +1153,10 @@ class WalletUiHelpers {
   Future<void> handleRefresh(
     Future<void> Function() syncWallet,
     List<ConnectivityResult> connectivityResult,
-    BuildContext context,
-  ) async {
+    BuildContext context, {
+    required int Function() getCurrentHeight,
+    required List<Map<String, dynamic>> Function() getTransactions,
+  }) async {
     // print('ConnectivityResult: $connectivityResult');
 
     if (connectivityResult.contains(ConnectivityResult.none)) {
@@ -766,25 +1169,31 @@ class WalletUiHelpers {
     }
 
     try {
+      final oldHeight = currentHeight;
+      final oldTxIds =
+          transactions.map((tx) => tx['txid']).whereType<String>().toSet();
+
       NotificationHelper.show(
         context,
         message: AppLocalizations.of(context)!.translate('syncing_wallet'),
       );
 
-      await walletService.syncWallet(wallet);
-      final newHeight = await walletService.fetchCurrentBlockHeight();
+      // print('Old Height: $currentHeight');
+      // print('Old tx count: ${oldTxIds.length}');
 
-      final walletTransactions = wallet.listTransactions(includeRaw: true);
+      await syncWallet();
 
-      // Find new transactions
-      List<String> newTransactions = walletService.findNewTransactions(
-        transactions, // From API response
-        walletTransactions, // From wallet.listTransactions()
-      );
+      final newHeight = getCurrentHeight();
+      final newTxIds =
+          getTransactions().map((tx) => tx['txid']).whereType<String>().toSet();
+
+      // print('New Height: $newHeight');
+      // print('New tx count: ${newTxIds.length}');
 
       // **Determine the message based on new block and transactions**
-      bool newBlockDetected = currentHeight != newHeight;
-      bool newTransactionDetected = newTransactions.isNotEmpty;
+      final bool newBlockDetected = oldHeight != newHeight;
+      final bool newTransactionDetected =
+          newTxIds.difference(oldTxIds).isNotEmpty;
 
       String syncMessage =
           AppLocalizations.of(context)!.translate('no_updates_yet');
@@ -804,7 +1213,6 @@ class WalletUiHelpers {
         // print('syncing');
         NotificationHelper.show(context, message: syncMessage);
 
-        await syncWallet();
         NotificationHelper.show(
           context,
           message: AppLocalizations.of(context)!.translate('syncing_complete'),
@@ -822,16 +1230,5 @@ class WalletUiHelpers {
             "${AppLocalizations.of(context)!.translate('syncing_error')} ${e.toString()}",
       );
     }
-  }
-
-  Widget buildMiniRefreshingIndicator() {
-    return Animate(
-      effects: [FadeEffect(duration: 500.ms), ScaleEffect(duration: 600.ms)],
-      child: Lottie.asset(
-        'assets/animations/loading.json',
-        width: 100,
-        height: 50,
-      ),
-    );
   }
 }

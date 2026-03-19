@@ -56,7 +56,7 @@ class InkwellButton extends StatelessWidget {
                   label!,
                   style: TextStyle(
                     color: isDisabled ? textColor.opaque(0.5) : textColor,
-                    fontSize: 16,
+                    fontSize: MediaQuery.textScalerOf(context).scale(16),
                     fontWeight: FontWeight.bold,
                   ),
                 ),

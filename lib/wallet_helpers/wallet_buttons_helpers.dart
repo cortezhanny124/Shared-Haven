@@ -1,4 +1,4 @@
-import 'package:bdk_flutter/bdk_flutter.dart';
+import 'package:bdk_dart/bdk.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_wallet/services/wallet_service.dart';
 import 'package:flutter_wallet/utilities/custom_button.dart';
@@ -12,7 +12,7 @@ class WalletButtonsHelper {
   final bool isSingleWallet;
   final WalletSendtxHelpers sendTxHelper;
   final GlobalKey<BaseScaffoldState> baseScaffoldKey;
-  final BigInt avBalance;
+  final int avBalance;
   final Wallet wallet;
   final WalletService walletService;
   final Set<String> myAddresses;
@@ -73,6 +73,7 @@ class WalletButtonsHelper {
           wallet: wallet,
           onNewAddressGenerated: onNewAddressGenerated,
           syncWallet: syncWallet,
+          myAddresses: myAddresses,
         );
   Widget buildButtons() {
     return SafeArea(
@@ -105,7 +106,7 @@ class WalletButtonsHelper {
             child: Padding(
               padding: const EdgeInsets.symmetric(horizontal: 4),
               child: CustomButton(
-                onPressed: () => sendTxHelper.sendTx(true),
+                onPressed: () => sendTxHelper.sendTx(true, address),
                 backgroundColor: AppColors.background(context),
                 foregroundColor: AppColors.text(context),
                 icon: Icons.arrow_upward,
@@ -130,7 +131,7 @@ class WalletButtonsHelper {
               child: Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 4),
                 child: CustomButton(
-                  onPressed: () => sendTxHelper.sendTx(false),
+                  onPressed: () => sendTxHelper.sendTx(false, address),
                   backgroundColor: AppColors.background(context),
                   foregroundColor: AppColors.gradient(context),
                   icon: Icons.draw,

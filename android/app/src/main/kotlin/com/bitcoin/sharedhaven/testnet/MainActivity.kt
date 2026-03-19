@@ -1,4 +1,4 @@
-package com.bitcoin.sharedhaven.testnet
+package org.sharedhaven.app
 
 import android.database.Cursor
 import android.net.Uri

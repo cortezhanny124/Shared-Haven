@@ -85,7 +85,8 @@ class CustomBottomSheet {
                             localizedTitle,
                             textAlign: TextAlign.center,
                             style: TextStyle(
-                              fontSize: 20,
+                              fontSize:
+                                  MediaQuery.textScalerOf(context).scale(20),
                               fontWeight: FontWeight.bold,
                               color: AppColors.cardTitle(sheetContext),
                             ),
@@ -159,6 +160,8 @@ class CustomBottomSheet {
     double minChildSize = 0.5,
     double maxChildSize = 0.95, // <- max size
     bool useRootNavigator = true,
+    bool isDismissible = true,
+    bool enableDrag = true,
   }) {
     final rootContext = context;
     final GlobalKey<AssistantWidgetState> assistantKey =
@@ -173,8 +176,8 @@ class CustomBottomSheet {
       context: rootContext,
       useRootNavigator: useRootNavigator,
       isScrollControlled: true,
-      isDismissible: true,
-      enableDrag: true,
+      isDismissible: isDismissible,
+      enableDrag: enableDrag,
       backgroundColor: AppColors.transaparent(),
       builder: (sheetContext) {
         final media = MediaQuery.of(sheetContext);
@@ -249,7 +252,8 @@ class CustomBottomSheet {
                                       .translate(titleKey),
                                   textAlign: TextAlign.center,
                                   style: TextStyle(
-                                    fontSize: 20,
+                                    fontSize: 20 *
+                                        MediaQuery.of(context).textScaleFactor,
                                     fontWeight: FontWeight.bold,
                                     color: AppColors.cardTitle(sheetContext),
                                   ),
