@@ -1,0 +1,1481 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SharedHaven — Your Bitcoin, Your Rules</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&family=DM+Mono:ital,wght@0,300;0,400;0,500;1,300&family=Crimson+Pro:ital,wght@0,300;0,400;1,300&display=swap" rel="stylesheet">
+
+<style>
+:root {
+  --bg: #0a0a0a;
+  --bg-card: #111111;
+  --bg-card2: #161616;
+  --orange: #f7931a;
+  --orange-dim: #c4740f;
+  --orange-glow: rgba(247,147,26,0.15);
+  --orange-glow2: rgba(247,147,26,0.06);
+  --text: #f0ece4;
+  --text-dim: #8a8070;
+  --text-mid: #b8a898;
+  --border: rgba(247,147,26,0.12);
+  --border2: rgba(255,255,255,0.06);
+  --green: #3ddc84;
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+html { scroll-behavior: smooth; }
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: 'DM Mono', monospace;
+  overflow-x: hidden;
+  cursor: default;
+}
+
+/* ─── LANG SWITCHER ─── */
+.lang-bar {
+  position: fixed; top: 0; left: 0; right: 0; z-index: 100;
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 14px 40px;
+  background: rgba(10,10,10,0.92);
+  backdrop-filter: blur(12px);
+  border-bottom: 1px solid var(--border);
+}
+.logo-sm {
+  font-family: 'Syne', sans-serif;
+  font-weight: 800;
+  font-size: 1.1rem;
+  letter-spacing: 0.08em;
+  color: var(--orange);
+  text-decoration: none;
+}
+.lang-switcher { display: flex; gap: 6px; }
+.lang-btn {
+  background: none; border: 1px solid var(--border);
+  color: var(--text-dim); font-family: 'DM Mono', monospace;
+  font-size: 0.7rem; letter-spacing: 0.12em;
+  padding: 5px 12px; cursor: pointer; transition: all 0.2s;
+  text-transform: uppercase;
+}
+.lang-btn:hover, .lang-btn.active {
+  border-color: var(--orange); color: var(--orange);
+  background: var(--orange-glow2);
+}
+
+/* HIDE/SHOW LANG */
+[data-lang] { display: none; }
+body.lang-it [data-lang="it"],
+body.lang-en [data-lang="en"],
+body.lang-es [data-lang="es"] { display: block; }
+body.lang-it [data-lang="it"].inline-block,
+body.lang-en [data-lang="en"].inline-block,
+body.lang-es [data-lang="es"].inline-block { display: inline; }
+
+/* ─── HERO ─── */
+.hero {
+  min-height: 100vh;
+  display: flex; flex-direction: column; justify-content: center; align-items: center;
+  text-align: center;
+  padding: 120px 24px 80px;
+  position: relative;
+  overflow: hidden;
+}
+.hero-bg {
+  position: absolute; inset: 0;
+  background:
+    radial-gradient(ellipse 60% 50% at 50% 40%, rgba(247,147,26,0.08) 0%, transparent 70%),
+    radial-gradient(ellipse 30% 20% at 20% 80%, rgba(247,147,26,0.04) 0%, transparent 60%);
+}
+.hero-grid {
+  position: absolute; inset: 0;
+  background-image:
+    linear-gradient(rgba(247,147,26,0.04) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(247,147,26,0.04) 1px, transparent 1px);
+  background-size: 60px 60px;
+  mask-image: radial-gradient(ellipse 80% 60% at 50% 50%, black 30%, transparent 100%);
+}
+.hero-eyebrow {
+  font-size: 0.68rem; letter-spacing: 0.22em; text-transform: uppercase;
+  color: var(--orange); margin-bottom: 28px; position: relative;
+  display: flex; align-items: center; gap: 12px;
+}
+.hero-eyebrow::before, .hero-eyebrow::after {
+  content: ''; display: block; width: 40px; height: 1px; background: var(--orange-dim);
+}
+.hero-title {
+  font-family: 'Syne', sans-serif;
+  font-weight: 800;
+  font-size: clamp(3rem, 9vw, 7.5rem);
+  line-height: 0.92;
+  letter-spacing: -0.03em;
+  position: relative;
+  margin-bottom: 12px;
+}
+.hero-title span.accent { color: var(--orange); }
+.hero-subtitle-italic {
+  font-family: 'Crimson Pro', serif;
+  font-style: italic;
+  font-size: clamp(1.1rem, 2.5vw, 1.6rem);
+  color: var(--text-mid);
+  margin-bottom: 48px;
+  position: relative;
+  max-width: 600px;
+}
+.hero-cta-row {
+  display: flex; gap: 16px; flex-wrap: wrap; justify-content: center;
+  position: relative;
+}
+.btn-primary {
+  background: var(--orange);
+  color: #0a0a0a;
+  font-family: 'Syne', sans-serif;
+  font-weight: 700;
+  font-size: 0.85rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  padding: 16px 32px;
+  border: none; cursor: pointer;
+  text-decoration: none;
+  display: inline-block;
+  transition: all 0.2s;
+  clip-path: polygon(0 0, calc(100% - 10px) 0, 100% 10px, 100% 100%, 10px 100%, 0 calc(100% - 10px));
+}
+.btn-primary:hover { background: #ffa840; transform: translateY(-2px); }
+.btn-secondary {
+  background: transparent;
+  color: var(--orange);
+  font-family: 'Syne', sans-serif;
+  font-weight: 600;
+  font-size: 0.85rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  padding: 15px 32px;
+  border: 1px solid var(--orange);
+  cursor: pointer;
+  text-decoration: none;
+  display: inline-block;
+  transition: all 0.2s;
+}
+.btn-secondary:hover { background: var(--orange-glow); transform: translateY(-2px); }
+
+/* ─── SECTION STRUCTURE ─── */
+section { padding: 100px 24px; }
+.container { max-width: 1100px; margin: 0 auto; }
+.section-label {
+  font-size: 0.65rem; letter-spacing: 0.25em; text-transform: uppercase;
+  color: var(--orange); margin-bottom: 16px; display: flex; align-items: center; gap: 10px;
+}
+.section-label::after { content: ''; flex: 1; max-width: 60px; height: 1px; background: var(--orange-dim); }
+.section-title {
+  font-family: 'Syne', sans-serif; font-weight: 800;
+  font-size: clamp(2rem, 4vw, 3.2rem);
+  line-height: 1.05; letter-spacing: -0.02em;
+  margin-bottom: 20px;
+}
+.section-body {
+  font-size: 0.95rem; line-height: 1.9;
+  color: var(--text-mid); max-width: 640px;
+  margin-bottom: 60px;
+}
+
+/* ─── FEATURES ─── */
+.features-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 1px;
+  background: var(--border2);
+  border: 1px solid var(--border2);
+}
+.feature-card {
+  background: var(--bg-card);
+  padding: 36px 32px;
+  position: relative;
+  overflow: hidden;
+  transition: background 0.3s;
+}
+.feature-card:hover { background: var(--bg-card2); }
+.feature-card::before {
+  content: '';
+  position: absolute; top: 0; left: 0; right: 0; height: 2px;
+  background: linear-gradient(90deg, transparent, var(--orange), transparent);
+  opacity: 0; transition: opacity 0.3s;
+}
+.feature-card:hover::before { opacity: 1; }
+.feature-icon {
+  font-size: 1.6rem; margin-bottom: 20px; display: block;
+}
+.feature-title {
+  font-family: 'Syne', sans-serif; font-weight: 700;
+  font-size: 1.05rem; margin-bottom: 12px; color: var(--text);
+}
+.feature-text {
+  font-size: 0.82rem; line-height: 1.8; color: var(--text-dim);
+}
+.feature-tag {
+  display: inline-block; margin-top: 16px;
+  font-size: 0.62rem; letter-spacing: 0.14em; text-transform: uppercase;
+  color: var(--orange); border: 1px solid var(--border); padding: 3px 8px;
+}
+
+/* ─── INHERITANCE SHOWCASE ─── */
+.inheritance-section { background: var(--bg-card); border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); }
+.inheritance-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 60px;
+  align-items: start;
+}
+@media (max-width: 768px) { .inheritance-grid { grid-template-columns: 1fr; } }
+
+.timeline {
+  display: flex; flex-direction: column; gap: 0;
+  position: relative;
+}
+.timeline::before {
+  content: ''; position: absolute; left: 16px; top: 20px; bottom: 20px;
+  width: 1px; background: linear-gradient(180deg, var(--orange), rgba(247,147,26,0.1));
+}
+.timeline-item {
+  display: flex; gap: 24px; padding: 0 0 32px 0;
+  position: relative;
+}
+.timeline-dot {
+  width: 33px; height: 33px; flex-shrink: 0;
+  border: 2px solid var(--orange);
+  background: var(--bg);
+  display: flex; align-items: center; justify-content: center;
+  font-family: 'Syne', sans-serif; font-weight: 800;
+  font-size: 0.75rem; color: var(--orange);
+  position: relative; z-index: 1;
+}
+.timeline-content {}
+.timeline-when {
+  font-size: 0.65rem; letter-spacing: 0.18em; text-transform: uppercase;
+  color: var(--orange); margin-bottom: 6px;
+}
+.timeline-title {
+  font-family: 'Syne', sans-serif; font-weight: 700;
+  font-size: 0.95rem; margin-bottom: 6px;
+}
+.timeline-desc {
+  font-size: 0.8rem; color: var(--text-dim); line-height: 1.7;
+}
+.inheritance-callout {
+  background: var(--bg-card2);
+  border: 1px solid var(--border);
+  padding: 32px;
+  margin-top: 32px;
+}
+.callout-title {
+  font-family: 'Syne', sans-serif; font-weight: 700;
+  font-size: 0.9rem; color: var(--orange); margin-bottom: 12px;
+}
+.callout-text { font-size: 0.82rem; line-height: 1.8; color: var(--text-mid); }
+
+/* ─── DOWNLOAD ─── */
+.download-section {
+  text-align: center;
+}
+.download-grid {
+  display: flex; gap: 32px; justify-content: center; flex-wrap: wrap;
+  margin: 48px 0;
+}
+.download-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  padding: 36px 40px;
+  display: flex; flex-direction: column; align-items: center; gap: 20px;
+  min-width: 220px;
+  transition: all 0.25s;
+  text-decoration: none; color: inherit;
+}
+.download-card:hover {
+  border-color: var(--orange);
+  background: var(--bg-card2);
+  transform: translateY(-4px);
+  box-shadow: 0 20px 60px rgba(247,147,26,0.12);
+}
+.qr-placeholder {
+  width: 120px; height: 120px;
+  background: #fff;
+  display: flex; align-items: center; justify-content: center;
+  position: relative;
+}
+.qr-placeholder svg { width: 100%; height: 100%; }
+.store-label {
+  font-family: 'Syne', sans-serif; font-weight: 700;
+  font-size: 0.85rem; letter-spacing: 0.08em; text-transform: uppercase;
+}
+.store-sub { font-size: 0.72rem; color: var(--text-dim); }
+.download-manual {
+  margin-top: 16px;
+  font-size: 0.78rem; color: var(--text-dim);
+}
+.download-manual a {
+  color: var(--orange); text-decoration: none;
+  border-bottom: 1px dashed var(--orange-dim);
+}
+.download-manual a:hover { color: #ffa840; }
+
+/* QR SVG style */
+.qr-svg { image-rendering: pixelated; }
+
+/* ─── COMPARISON ─── */
+.comparison-table-wrap { overflow-x: auto; }
+table {
+  width: 100%; border-collapse: collapse;
+  font-size: 0.82rem;
+}
+thead tr {
+  border-bottom: 2px solid var(--orange);
+}
+th {
+  padding: 16px 20px; text-align: left;
+  font-family: 'Syne', sans-serif; font-weight: 700;
+  font-size: 0.8rem; letter-spacing: 0.08em; text-transform: uppercase;
+  color: var(--text-dim);
+}
+th.highlight { color: var(--orange); }
+td {
+  padding: 14px 20px;
+  border-bottom: 1px solid var(--border2);
+  color: var(--text-mid); line-height: 1.5;
+}
+tr:hover td { background: var(--orange-glow2); }
+.check { color: var(--green); }
+.cross { color: #555; }
+.partial { color: var(--orange); }
+td.hl { color: var(--text); }
+td.hl-orange { color: var(--orange); font-weight: 500; }
+
+/* ─── OPEN SOURCE ─── */
+.oss-section { }
+.oss-grid {
+  display: grid; grid-template-columns: 1fr 1fr; gap: 32px; margin-top: 40px;
+}
+@media (max-width: 700px) { .oss-grid { grid-template-columns: 1fr; } }
+.oss-card {
+  background: var(--bg-card); border: 1px solid var(--border);
+  padding: 28px 28px;
+}
+.oss-card-title {
+  font-family: 'Syne', sans-serif; font-weight: 700;
+  font-size: 0.9rem; margin-bottom: 10px; color: var(--text);
+}
+.oss-card-text { font-size: 0.8rem; color: var(--text-dim); line-height: 1.75; }
+.code-badge {
+  display: inline-block; margin-top: 14px;
+  background: #1a1a1a; border: 1px solid var(--border2);
+  padding: 8px 14px; font-size: 0.72rem; color: var(--text-dim);
+  font-family: 'DM Mono', monospace;
+}
+.code-badge a { color: var(--orange); text-decoration: none; }
+.code-badge a:hover { text-decoration: underline; }
+.lang-bar-list {
+  display: flex; gap: 16px; flex-wrap: wrap; margin-top: 20px;
+}
+.lang-pill {
+  font-size: 0.7rem; padding: 4px 12px;
+  border: 1px solid var(--border); color: var(--text-dim);
+}
+.lang-pill span { color: var(--orange); margin-right: 6px; }
+
+/* ─── TEAM ─── */
+.team-section { background: var(--bg-card); border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); }
+.team-grid {
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 32px; margin-top: 40px;
+}
+.team-card {
+  background: var(--bg); border: 1px solid var(--border);
+  padding: 32px 28px; position: relative; overflow: hidden;
+}
+.team-card::after {
+  content: '';
+  position: absolute; bottom: 0; left: 0; right: 0; height: 2px;
+  background: linear-gradient(90deg, var(--orange), transparent);
+}
+.team-avatar {
+  width: 64px; height: 64px;
+  border: 2px solid var(--orange);
+  display: flex; align-items: center; justify-content: center;
+  font-family: 'Syne', sans-serif; font-weight: 800;
+  font-size: 1.4rem; color: var(--orange);
+  margin-bottom: 20px;
+  background: var(--orange-glow2);
+}
+.team-name {
+  font-family: 'Syne', sans-serif; font-weight: 800;
+  font-size: 1.1rem; margin-bottom: 4px;
+}
+.team-role {
+  font-size: 0.7rem; letter-spacing: 0.14em; text-transform: uppercase;
+  color: var(--orange); margin-bottom: 16px;
+}
+.team-bio { font-size: 0.8rem; color: var(--text-dim); line-height: 1.8; }
+.team-flag { font-size: 1.1rem; margin-left: 8px; }
+.team-badge {
+  display: inline-block; margin-top: 16px;
+  font-size: 0.65rem; letter-spacing: 0.1em; text-transform: uppercase;
+  border: 1px solid var(--border); padding: 4px 10px; color: var(--text-dim);
+}
+
+/* ─── FAQ ─── */
+.faq-list { margin-top: 40px; }
+.faq-item {
+  border-bottom: 1px solid var(--border2);
+}
+.faq-q {
+  padding: 22px 0;
+  display: flex; justify-content: space-between; align-items: center;
+  cursor: pointer;
+  font-family: 'Syne', sans-serif; font-weight: 600; font-size: 0.95rem;
+  color: var(--text);
+  user-select: none;
+  transition: color 0.2s;
+}
+.faq-q:hover { color: var(--orange); }
+.faq-icon {
+  font-size: 1.2rem; color: var(--orange);
+  transition: transform 0.25s;
+}
+.faq-item.open .faq-icon { transform: rotate(45deg); }
+.faq-a {
+  max-height: 0; overflow: hidden;
+  transition: max-height 0.35s ease, padding 0.25s;
+  font-size: 0.85rem; color: var(--text-dim); line-height: 1.85;
+}
+.faq-item.open .faq-a { max-height: 300px; padding-bottom: 22px; }
+
+/* ─── FOOTER ─── */
+footer {
+  padding: 60px 24px 40px;
+  border-top: 1px solid var(--border2);
+  text-align: center;
+}
+.footer-logo {
+  font-family: 'Syne', sans-serif; font-weight: 800;
+  font-size: 1.5rem; color: var(--orange); letter-spacing: 0.06em;
+  margin-bottom: 16px;
+}
+.footer-links {
+  display: flex; gap: 28px; justify-content: center; flex-wrap: wrap;
+  margin: 20px 0;
+}
+.footer-links a {
+  font-size: 0.75rem; letter-spacing: 0.1em; text-transform: uppercase;
+  color: var(--text-dim); text-decoration: none; transition: color 0.2s;
+}
+.footer-links a:hover { color: var(--orange); }
+.footer-copy {
+  font-size: 0.72rem; color: var(--text-dim); margin-top: 20px;
+}
+.footer-license {
+  font-size: 0.68rem; color: #444; margin-top: 8px;
+}
+
+/* ─── ANIMATIONS ─── */
+@keyframes fadeUp {
+  from { opacity: 0; transform: translateY(30px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.hero-eyebrow { animation: fadeUp 0.6s ease 0.1s both; }
+.hero-title { animation: fadeUp 0.7s ease 0.2s both; }
+.hero-subtitle-italic { animation: fadeUp 0.7s ease 0.35s both; }
+.hero-cta-row { animation: fadeUp 0.7s ease 0.5s both; }
+
+/* ─── RESPONSIVE ─── */
+@media (max-width: 600px) {
+  .lang-bar { padding: 12px 16px; }
+  section { padding: 70px 16px; }
+  .inheritance-grid { grid-template-columns: 1fr; }
+  .download-grid { flex-direction: column; align-items: center; }
+  .oss-grid { grid-template-columns: 1fr; }
+}
+</style>
+</head>
+<body class="lang-it">
+
+<!-- LANGUAGE BAR -->
+<nav class="lang-bar">
+  <a href="#top" class="logo-sm">⬡ SharedHaven</a>
+  <div class="lang-switcher">
+    <button class="lang-btn active" onclick="setLang('it', this)">IT</button>
+    <button class="lang-btn" onclick="setLang('en', this)">EN</button>
+    <button class="lang-btn" onclick="setLang('es', this)">ES</button>
+  </div>
+</nav>
+
+<!-- ══════════════════════════════════════ HERO -->
+<section class="hero" id="top">
+  <div class="hero-bg"></div>
+  <div class="hero-grid"></div>
+
+  <div class="hero-eyebrow">
+    <span data-lang="it">Il portafoglio Bitcoin della tua famiglia</span>
+    <span data-lang="en">The Bitcoin wallet for your family</span>
+    <span data-lang="es">La billetera Bitcoin de tu familia</span>
+  </div>
+
+  <h1 class="hero-title">
+    Shared<span class="accent">Haven</span>
+  </h1>
+
+  <p class="hero-subtitle-italic">
+    <span data-lang="it">Eredità, custodia condivisa e pagamenti multi-firma — tutto on-chain, nessun intermediario.</span>
+    <span data-lang="en">Inheritance, shared custody & multisig payments — fully on-chain, no intermediaries.</span>
+    <span data-lang="es">Herencia, custodia compartida y pagos multifirma — todo on-chain, sin intermediarios.</span>
+  </p>
+
+  <div class="hero-cta-row">
+    <a href="#download" class="btn-primary">
+      <span data-lang="it">Scarica ora</span>
+      <span data-lang="en">Download now</span>
+      <span data-lang="es">Descarga ahora</span>
+    </a>
+    <a href="#inheritance" class="btn-secondary">
+      <span data-lang="it">Come funziona l'eredità</span>
+      <span data-lang="en">How inheritance works</span>
+      <span data-lang="es">Cómo funciona la herencia</span>
+    </a>
+  </div>
+</section>
+
+<!-- ══════════════════════════════════════ FEATURES -->
+<section id="features">
+<div class="container">
+  <p class="section-label">
+    <span data-lang="it">Funzionalità avanzate</span>
+    <span data-lang="en">Advanced features</span>
+    <span data-lang="es">Funciones avanzadas</span>
+  </p>
+  <h2 class="section-title">
+    <span data-lang="it">Tutto il potere di Bitcoin<br>in tasca</span>
+    <span data-lang="en">The full power of Bitcoin<br>in your pocket</span>
+    <span data-lang="es">Todo el poder de Bitcoin<br>en tu bolsillo</span>
+  </h2>
+
+  <div class="features-grid">
+
+    <div class="feature-card">
+      <span class="feature-icon">🔐</span>
+      <div class="feature-title">
+        <span data-lang="it">Multisig & Soglie</span>
+        <span data-lang="en">Multisig & Thresholds</span>
+        <span data-lang="es">Multifirma & Umbrales</span>
+      </div>
+      <p class="feature-text">
+        <span data-lang="it">Crea portafogli condivisi che richiedono N-su-M firme per spendere. Elimina ogni singolo punto di fallimento. I tuoi fondi rimangono al sicuro anche se una chiave viene persa o compromessa.</span>
+        <span data-lang="en">Create shared wallets requiring N-of-M signatures to spend. Eliminate every single point of failure. Your funds remain safe even if one key is lost or compromised.</span>
+        <span data-lang="es">Crea billeteras compartidas que requieren N de M firmas para gastar. Elimina cada punto único de falla. Tus fondos permanecen seguros incluso si se pierde una clave.</span>
+      </p>
+      <span class="feature-tag">Miniscript / PSBT</span>
+    </div>
+
+    <div class="feature-card">
+      <span class="feature-icon">⏱</span>
+      <div class="feature-title">
+        <span data-lang="it">Timelock On-Chain</span>
+        <span data-lang="en">On-Chain Timelocks</span>
+        <span data-lang="es">Timelocks On-Chain</span>
+      </div>
+      <p class="feature-text">
+        <span data-lang="it">Imposta condizioni temporali direttamente sulla blockchain Bitcoin — nessun server di terze parti. Le regole di sblocco sono garantite dall'intera rete Bitcoin, non da una promessa aziendale.</span>
+        <span data-lang="en">Set time conditions directly on the Bitcoin blockchain — no third-party server. Unlock rules are enforced by the full Bitcoin network, not a company promise.</span>
+        <span data-lang="es">Establece condiciones temporales directamente en la blockchain Bitcoin — sin servidor de terceros. Las reglas de desbloqueo son garantizadas por toda la red Bitcoin.</span>
+      </p>
+      <span class="feature-tag">OP_CSV / Relative timelock</span>
+    </div>
+
+    <div class="feature-card">
+      <span class="feature-icon">📜</span>
+      <div class="feature-title">
+        <span data-lang="it">Descriptor Condivisi</span>
+        <span data-lang="en">Shared Descriptors</span>
+        <span data-lang="es">Descriptores Compartidos</span>
+      </div>
+      <p class="feature-text">
+        <span data-lang="it">Il portafoglio condiviso viene esportato come file descriptor. Chiunque lo riceva può importarlo e monitorare il saldo. Nessuna dipendenza da cloud: un semplice file JSON.</span>
+        <span data-lang="en">The shared wallet is exported as a descriptor file. Anyone who receives it can import it and monitor the balance. No cloud dependency — just a simple JSON file.</span>
+        <span data-lang="es">La billetera compartida se exporta como archivo descriptor. Quien lo reciba puede importarlo y monitorear el saldo. Sin dependencia de la nube — solo un archivo JSON.</span>
+      </p>
+      <span class="feature-tag">Output Descriptor</span>
+    </div>
+
+    <div class="feature-card">
+      <span class="feature-icon">✍️</span>
+      <div class="feature-title">PSBT Co-Signing</div>
+      <p class="feature-text">
+        <span data-lang="it">Firma le transazioni in più passaggi tra più parti. Un partecipante crea la transazione parzialmente firmata (PSBT), la condivide, e gli altri co-firmano dopo aver verificato l'importo e il destinatario.</span>
+        <span data-lang="en">Sign transactions in multiple steps across multiple parties. One participant creates the partially-signed transaction (PSBT), shares it, and others co-sign after verifying amount and recipient.</span>
+        <span data-lang="es">Firma transacciones en múltiples pasos entre varias partes. Un participante crea la transacción parcialmente firmada (PSBT), la comparte, y los demás co-firman tras verificar el monto.</span>
+      </p>
+      <span class="feature-tag">BIP-174 PSBT</span>
+    </div>
+
+    <div class="feature-card">
+      <span class="feature-icon">🔄</span>
+      <div class="feature-title">
+        <span data-lang="it">Decaying Multisig</span>
+        <span data-lang="en">Decaying Multisig</span>
+        <span data-lang="es">Multifirma Decreciente</span>
+      </div>
+      <p class="feature-text">
+        <span data-lang="it">Le regole cambiano con il passare del tempo: inizialmente servono più firme, poi — dopo un periodo definito — ne basta una sola. Ideale per eredità che si semplificano autonomamente.</span>
+        <span data-lang="en">Rules change over time: initially multiple signatures are required, then — after a defined period — only one is needed. Ideal for inheritance that simplifies itself autonomously.</span>
+        <span data-lang="es">Las reglas cambian con el tiempo: inicialmente se requieren múltiples firmas, luego — tras un período definido — solo una basta. Ideal para herencias que se simplifican automáticamente.</span>
+      </p>
+      <span class="feature-tag">
+        <span data-lang="it">Ereditarietà avanzata</span>
+        <span data-lang="en">Advanced inheritance</span>
+        <span data-lang="es">Herencia avanzada</span>
+      </span>
+    </div>
+
+    <div class="feature-card">
+      <span class="feature-icon">🌐</span>
+      <div class="feature-title">
+        <span data-lang="it">Testnet & Open Source</span>
+        <span data-lang="en">Testnet & Open Source</span>
+        <span data-lang="es">Testnet & Código Abierto</span>
+      </div>
+      <p class="feature-text">
+        <span data-lang="it">Prova tutto con Bitcoin testnet (schermata verde) senza rischiare fondi reali. Il codice sorgente è pubblico su GitHub con licenza GPL-3.0: chiunque può verificare, contribuire o fare fork.</span>
+        <span data-lang="en">Test everything with Bitcoin testnet (green screen) without risking real funds. Source code is public on GitHub under GPL-3.0: anyone can verify, contribute, or fork.</span>
+        <span data-lang="es">Prueba todo con Bitcoin testnet (pantalla verde) sin arriesgar fondos reales. El código fuente es público en GitHub bajo GPL-3.0: cualquiera puede verificar, contribuir o bifurcar.</span>
+      </p>
+      <span class="feature-tag">GPL-3.0 · Flutter</span>
+    </div>
+
+  </div>
+</div>
+</section>
+
+<!-- ══════════════════════════════════════ INHERITANCE -->
+<section id="inheritance" class="inheritance-section">
+<div class="container">
+  <p class="section-label">
+    <span data-lang="it">Gestione dell'eredità</span>
+    <span data-lang="en">Inheritance management</span>
+    <span data-lang="es">Gestión de herencia</span>
+  </p>
+  <h2 class="section-title">
+    <span data-lang="it">Il tuo Bitcoin<br>sopravvive a te</span>
+    <span data-lang="en">Your Bitcoin<br>outlives you</span>
+    <span data-lang="es">Tu Bitcoin<br>te sobrevive</span>
+  </h2>
+  <p class="section-body">
+    <span data-lang="it">Con SharedHaven puoi programmare regole di spesa che cambiano nel tempo — senza affidarti a nessuno. La blockchain Bitcoin fa da notaio. Ora vedremo un esempio, ma si possono creare tutte le configurazioni che si vuole a piacimento.</span>
+    <span data-lang="en">With SharedHaven you can program spending rules that change over time — without trusting anyone. The Bitcoin blockchain acts as notary. Now we'll look at an example, but you can create any configuration you like.</span>
+    <span data-lang="es">Con SharedHaven puedes programar reglas de gasto que cambian con el tiempo — sin confiar en nadie. La blockchain Bitcoin actúa como notario. Ahora veremos un ejemplo, pero se pueden crear todas las configuraciones que se deseen.</span>
+  </p>
+
+  <div class="inheritance-grid">
+    <!-- Timeline -->
+    <div>
+      <div class="timeline">
+
+        <div class="timeline-item">
+          <div class="timeline-dot">1</div>
+          <div class="timeline-content">
+            <div class="timeline-when">
+              <span data-lang="it">Sempre</span>
+              <span data-lang="en">Always</span>
+              <span data-lang="es">Siempre</span>
+            </div>
+            <div class="timeline-title">
+              <span data-lang="it">Il Padre spende da solo</span>
+              <span data-lang="en">Father spends alone</span>
+              <span data-lang="es">El Padre gasta solo</span>
+            </div>
+            <div class="timeline-desc">
+              <span data-lang="it">Con la sua chiave privata, ha accesso immediato. Soglia 1/1. La regola è attiva fin dall'inizio.</span>
+              <span data-lang="en">With his private key, he has immediate access. Threshold 1/1. The rule is active from day one.</span>
+              <span data-lang="es">Con su clave privada, tiene acceso inmediato. Umbral 1/1. La regla está activa desde el primer día.</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="timeline-item">
+          <div class="timeline-dot">2</div>
+          <div class="timeline-content">
+            <div class="timeline-when">
+              <span data-lang="it">Dopo 1 anno di inattività</span>
+              <span data-lang="en">After 1 year of inactivity</span>
+              <span data-lang="es">Tras 1 año de inactividad</span>
+            </div>
+            <div class="timeline-title">
+              <span data-lang="it">Moglie + Figlio insieme</span>
+              <span data-lang="en">Wife + Son together</span>
+              <span data-lang="es">Esposa + Hijo juntos</span>
+            </div>
+            <div class="timeline-desc">
+              <span data-lang="it">Se i fondi non vengono mossi per un anno (≈ 52.560 blocchi), moglie e figlio devono cooperare: soglia 2/2. Nessuno può agire da solo.</span>
+              <span data-lang="en">If funds aren't moved for one year (≈ 52,560 blocks), wife and son must cooperate: threshold 2/2. Neither can act alone.</span>
+              <span data-lang="es">Si los fondos no se mueven por un año (≈ 52.560 bloques), esposa e hijo deben cooperar: umbral 2/2. Ninguno puede actuar solo.</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="timeline-item">
+          <div class="timeline-dot">3</div>
+          <div class="timeline-content">
+            <div class="timeline-when">
+              <span data-lang="it">Dopo 1 anno + 2 settimane</span>
+              <span data-lang="en">After 1 year + 2 weeks</span>
+              <span data-lang="es">Tras 1 año + 2 semanas</span>
+            </div>
+            <div class="timeline-title">
+              <span data-lang="it">Moglie o Figlio, da soli</span>
+              <span data-lang="en">Wife or Son, independently</span>
+              <span data-lang="es">Esposa o Hijo, de forma independiente</span>
+            </div>
+            <div class="timeline-desc">
+              <span data-lang="it">Se neanche la cooperazione è possibile (esempio: uno dei due ha perso le chiavi), basta una delle due chiavi: soglia 1/2. Protezione contro la perdita di una chiave degli eredi.</span>
+              <span data-lang="en">If cooperation isn't possible (example: One of them lost the keys), only one of the two keys is needed: threshold 1/2. Protection against loss of one heir's key.</span>
+              <span data-lang="es">Si la cooperación no es posible (ejemplo: uno de los dos ha perdido las llaves), solo se necesita una de las dos claves: umbral 1/2. Protección contra pérdida de la clave de un heredero.</span>
+            </div>
+          </div>
+        </div>
+
+      </div>
+
+      <div class="inheritance-callout">
+        <div class="callout-title">
+          <span data-lang="it">⚡ Tutto autonomo, nessuna fiducia richiesta</span>
+          <span data-lang="en">⚡ Fully autonomous, no trust required</span>
+          <span data-lang="es">⚡ Totalmente autónomo, sin necesidad de confianza</span>
+        </div>
+        <p class="callout-text">
+          <span data-lang="it">Non c'è nessun avvocato, notaio o società che custodisce le chiavi. Le regole sono codificate direttamente nello script Bitcoin e vengono eseguite automaticamente dalla rete. Zero KYC. Zero intermediari.</span>
+          <span data-lang="en">There's no lawyer, notary, or company holding keys. Rules are coded directly into the Bitcoin script and executed automatically by the network. Zero KYC. Zero intermediaries.</span>
+          <span data-lang="es">No hay abogado, notario ni empresa que custodie las claves. Las reglas están codificadas directamente en el script Bitcoin y se ejecutan automáticamente por la red. Cero KYC. Cero intermediarios.</span>
+        </p>
+      </div>
+    </div>
+
+    <!-- Right side -->
+    <div>
+      <p class="section-label" style="margin-top:0">
+        <span data-lang="it">Casi d'uso</span>
+        <span data-lang="en">Use cases</span>
+        <span data-lang="es">Casos de uso</span>
+      </p>
+      <h3 class="section-title" style="font-size:1.5rem; margin-bottom:32px">
+        <span data-lang="it">Non solo eredità</span>
+        <span data-lang="en">Not just inheritance</span>
+        <span data-lang="es">No solo herencia</span>
+      </h3>
+
+      <div style="display:flex;flex-direction:column;gap:20px;">
+        <div class="oss-card">
+          <div class="oss-card-title">🏦
+            <span data-lang="it">Conto famiglia / conto coniugale</span>
+            <span data-lang="en">Family / joint account</span>
+            <span data-lang="es">Cuenta familiar / conyugal</span>
+          </div>
+          <p class="oss-card-text">
+            <span data-lang="it">Fondi condivisi tra coniugi con regole flessibili: entrambi firmano, o ognuno può spendere sotto una certa soglia.</span>
+            <span data-lang="en">Shared funds between spouses with flexible rules: both sign, or each can spend under a certain threshold.</span>
+            <span data-lang="es">Fondos compartidos entre cónyuges con reglas flexibles: ambos firman, o cada uno puede gastar bajo cierto umbral.</span>
+          </p>
+        </div>
+        <div class="oss-card">
+          <div class="oss-card-title">🤝
+            <span data-lang="it">Partnership & Joint Venture</span>
+            <span data-lang="en">Partnership & Joint Venture</span>
+            <span data-lang="es">Partnership & Joint Venture</span>
+          </div>
+          <p class="oss-card-text">
+            <span data-lang="it">Fondi aziendali che richiedono più firme per spese rilevanti. Trasparenza totale senza intermediari bancari.</span>
+            <span data-lang="en">Business funds requiring multiple signatures for significant expenses. Full transparency without banking intermediaries.</span>
+            <span data-lang="es">Fondos empresariales que requieren múltiples firmas para gastos importantes. Transparencia total sin intermediarios bancarios.</span>
+          </p>
+        </div>
+        <div class="oss-card">
+          <div class="oss-card-title">🎓
+            <span data-lang="it">Risparmio per figli / trust</span>
+            <span data-lang="en">Children's savings / trust</span>
+            <span data-lang="es">Ahorros para hijos / fideicomiso</span>
+          </div>
+          <p class="oss-card-text">
+            <span data-lang="it">I fondi si sbloccano automaticamente dopo X anni — i genitori mantengono il controllo fino ad allora, poi il figlio accede autonomamente.</span>
+            <span data-lang="en">Funds unlock automatically after X years — parents maintain control until then, then the child gains autonomous access.</span>
+            <span data-lang="es">Los fondos se desbloquean automáticamente tras X años — los padres mantienen el control hasta entonces, luego el hijo accede de forma autónoma.</span>
+          </p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+</section>
+
+<!-- ══════════════════════════════════════ DOWNLOAD -->
+<section id="download" class="download-section">
+<div class="container">
+  <p class="section-label" style="justify-content:center">
+    <span data-lang="it">Disponibile ora</span>
+    <span data-lang="en">Available now</span>
+    <span data-lang="es">Disponible ahora</span>
+  </p>
+  <h2 class="section-title">
+    <span data-lang="it">Scarica SharedHaven</span>
+    <span data-lang="en">Download SharedHaven</span>
+    <span data-lang="es">Descarga SharedHaven</span>
+  </h2>
+  <p style="color:var(--text-dim);font-size:0.85rem;max-width:500px;margin:0 auto 20px;">
+    <span data-lang="it">Gratuito. Nessun KYC. Open source. Disponibile su Android, iOS e F-Droid.</span>
+    <span data-lang="en">Free. No KYC. Open source. Available on Android, iOS, and F-Droid.</span>
+    <span data-lang="es">Gratis. Sin KYC. Código abierto. Disponible en Android, iOS y F-Droid.</span>
+  </p>
+
+  <div class="download-grid">
+
+    <!-- Google Play -->
+    <a href="https://play.google.com/store/apps/details?id=org.sharedhaven.app" target="_blank" rel="noopener" class="download-card">
+      <div class="qr-placeholder" title="Google Play QR">
+        <!-- QR code for Google Play URL -->
+        <svg viewBox="0 0 21 21" xmlns="http://www.w3.org/2000/svg" class="qr-svg">
+          <!-- Position detection patterns -->
+          <rect x="0" y="0" width="7" height="7" fill="#000"/><rect x="1" y="1" width="5" height="5" fill="#fff"/><rect x="2" y="2" width="3" height="3" fill="#000"/>
+          <rect x="14" y="0" width="7" height="7" fill="#000"/><rect x="15" y="1" width="5" height="5" fill="#fff"/><rect x="16" y="2" width="3" height="3" fill="#000"/>
+          <rect x="0" y="14" width="7" height="7" fill="#000"/><rect x="1" y="15" width="5" height="5" fill="#fff"/><rect x="2" y="16" width="3" height="3" fill="#000"/>
+          <!-- Data modules (representative pattern) -->
+          <rect x="8" y="0" width="1" height="1" fill="#000"/><rect x="10" y="0" width="1" height="1" fill="#000"/><rect x="12" y="0" width="1" height="1" fill="#000"/>
+          <rect x="8" y="2" width="1" height="1" fill="#000"/><rect x="9" y="2" width="1" height="1" fill="#000"/><rect x="11" y="2" width="2" height="1" fill="#000"/>
+          <rect x="8" y="4" width="2" height="1" fill="#000"/><rect x="11" y="4" width="1" height="1" fill="#000"/><rect x="13" y="4" width="1" height="1" fill="#000"/>
+          <rect x="9" y="6" width="1" height="1" fill="#000"/><rect x="11" y="6" width="1" height="1" fill="#000"/><rect x="12" y="6" width="1" height="1" fill="#000"/>
+          <rect x="0" y="8" width="1" height="1" fill="#000"/><rect x="2" y="8" width="3" height="1" fill="#000"/><rect x="7" y="8" width="1" height="1" fill="#000"/>
+          <rect x="9" y="8" width="2" height="1" fill="#000"/><rect x="12" y="8" width="1" height="1" fill="#000"/><rect x="14" y="8" width="2" height="1" fill="#000"/>
+          <rect x="17" y="8" width="1" height="1" fill="#000"/><rect x="19" y="8" width="1" height="1" fill="#000"/>
+          <rect x="1" y="9" width="1" height="1" fill="#000"/><rect x="3" y="9" width="2" height="1" fill="#000"/><rect x="8" y="9" width="1" height="1" fill="#000"/>
+          <rect x="10" y="9" width="3" height="1" fill="#000"/><rect x="15" y="9" width="1" height="1" fill="#000"/><rect x="18" y="9" width="2" height="1" fill="#000"/>
+          <rect x="0" y="10" width="3" height="1" fill="#000"/><rect x="5" y="10" width="1" height="1" fill="#000"/><rect x="7" y="10" width="2" height="1" fill="#000"/>
+          <rect x="11" y="10" width="1" height="1" fill="#000"/><rect x="13" y="10" width="2" height="1" fill="#000"/><rect x="17" y="10" width="1" height="1" fill="#000"/>
+          <rect x="20" y="10" width="1" height="1" fill="#000"/>
+          <rect x="1" y="11" width="2" height="1" fill="#000"/><rect x="4" y="11" width="1" height="1" fill="#000"/><rect x="6" y="11" width="1" height="1" fill="#000"/>
+          <rect x="9" y="11" width="2" height="1" fill="#000"/><rect x="12" y="11" width="2" height="1" fill="#000"/><rect x="16" y="11" width="1" height="1" fill="#000"/>
+          <rect x="19" y="11" width="1" height="1" fill="#000"/>
+          <rect x="0" y="12" width="1" height="1" fill="#000"/><rect x="3" y="12" width="2" height="1" fill="#000"/><rect x="7" y="12" width="1" height="1" fill="#000"/>
+          <rect x="10" y="12" width="1" height="1" fill="#000"/><rect x="13" y="12" width="1" height="1" fill="#000"/><rect x="15" y="12" width="2" height="1" fill="#000"/>
+          <rect x="18" y="12" width="2" height="1" fill="#000"/>
+          <rect x="8" y="13" width="1" height="1" fill="#000"/><rect x="10" y="13" width="2" height="1" fill="#000"/><rect x="14" y="13" width="1" height="1" fill="#000"/>
+          <rect x="17" y="13" width="1" height="1" fill="#000"/><rect x="19" y="13" width="1" height="1" fill="#000"/>
+          <rect x="8" y="14" width="2" height="1" fill="#000"/><rect x="11" y="14" width="1" height="1" fill="#000"/>
+          <rect x="8" y="15" width="1" height="1" fill="#000"/><rect x="10" y="15" width="3" height="1" fill="#000"/><rect x="14" y="15" width="1" height="1" fill="#000"/>
+          <rect x="16" y="15" width="1" height="1" fill="#000"/><rect x="19" y="15" width="1" height="1" fill="#000"/>
+          <rect x="8" y="16" width="2" height="1" fill="#000"/><rect x="11" y="16" width="1" height="1" fill="#000"/><rect x="13" y="16" width="2" height="1" fill="#000"/>
+          <rect x="17" y="16" width="2" height="1" fill="#000"/><rect x="20" y="16" width="1" height="1" fill="#000"/>
+          <rect x="9" y="17" width="1" height="1" fill="#000"/><rect x="11" y="17" width="2" height="1" fill="#000"/><rect x="15" y="17" width="1" height="1" fill="#000"/>
+          <rect x="18" y="17" width="1" height="1" fill="#000"/>
+          <rect x="8" y="18" width="3" height="1" fill="#000"/><rect x="12" y="18" width="1" height="1" fill="#000"/><rect x="14" y="18" width="3" height="1" fill="#000"/>
+          <rect x="19" y="18" width="1" height="1" fill="#000"/>
+          <rect x="9" y="19" width="2" height="1" fill="#000"/><rect x="13" y="19" width="2" height="1" fill="#000"/><rect x="17" y="19" width="1" height="1" fill="#000"/>
+          <rect x="20" y="19" width="1" height="1" fill="#000"/>
+          <rect x="8" y="20" width="1" height="1" fill="#000"/><rect x="10" y="20" width="1" height="1" fill="#000"/><rect x="12" y="20" width="3" height="1" fill="#000"/>
+          <rect x="16" y="20" width="2" height="1" fill="#000"/><rect x="19" y="20" width="2" height="1" fill="#000"/>
+        </svg>
+      </div>
+      <div>
+        <div class="store-label">Google Play</div>
+        <div class="store-sub">Android · org.sharedhaven.app</div>
+      </div>
+    </a>
+
+    <!-- App Store -->
+    <a href="https://apps.apple.com/it/app/sharedhaven/id6762748392" target="_blank" rel="noopener" class="download-card">
+      <div class="qr-placeholder" title="App Store QR">
+        <svg viewBox="0 0 21 21" xmlns="http://www.w3.org/2000/svg" class="qr-svg">
+          <rect x="0" y="0" width="7" height="7" fill="#000"/><rect x="1" y="1" width="5" height="5" fill="#fff"/><rect x="2" y="2" width="3" height="3" fill="#000"/>
+          <rect x="14" y="0" width="7" height="7" fill="#000"/><rect x="15" y="1" width="5" height="5" fill="#fff"/><rect x="16" y="2" width="3" height="3" fill="#000"/>
+          <rect x="0" y="14" width="7" height="7" fill="#000"/><rect x="1" y="15" width="5" height="5" fill="#fff"/><rect x="2" y="16" width="3" height="3" fill="#000"/>
+          <rect x="8" y="1" width="2" height="1" fill="#000"/><rect x="11" y="1" width="1" height="1" fill="#000"/><rect x="13" y="1" width="1" height="1" fill="#000"/>
+          <rect x="9" y="3" width="1" height="1" fill="#000"/><rect x="11" y="3" width="2" height="1" fill="#000"/>
+          <rect x="8" y="5" width="1" height="1" fill="#000"/><rect x="10" y="5" width="3" height="1" fill="#000"/>
+          <rect x="8" y="7" width="2" height="1" fill="#000"/><rect x="12" y="7" width="2" height="1" fill="#000"/>
+          <rect x="0" y="8" width="2" height="1" fill="#000"/><rect x="4" y="8" width="1" height="1" fill="#000"/><rect x="7" y="8" width="2" height="1" fill="#000"/>
+          <rect x="11" y="8" width="1" height="1" fill="#000"/><rect x="13" y="8" width="3" height="1" fill="#000"/><rect x="18" y="8" width="1" height="1" fill="#000"/>
+          <rect x="20" y="8" width="1" height="1" fill="#000"/>
+          <rect x="2" y="9" width="2" height="1" fill="#000"/><rect x="6" y="9" width="1" height="1" fill="#000"/><rect x="8" y="9" width="1" height="1" fill="#000"/>
+          <rect x="10" y="9" width="2" height="1" fill="#000"/><rect x="14" y="9" width="1" height="1" fill="#000"/><rect x="17" y="9" width="2" height="1" fill="#000"/>
+          <rect x="0" y="10" width="1" height="1" fill="#000"/><rect x="3" y="10" width="3" height="1" fill="#000"/><rect x="7" y="10" width="1" height="1" fill="#000"/>
+          <rect x="9" y="10" width="1" height="1" fill="#000"/><rect x="12" y="10" width="2" height="1" fill="#000"/><rect x="16" y="10" width="1" height="1" fill="#000"/>
+          <rect x="18" y="10" width="2" height="1" fill="#000"/>
+          <rect x="1" y="11" width="1" height="1" fill="#000"/><rect x="4" y="11" width="1" height="1" fill="#000"/><rect x="7" y="11" width="3" height="1" fill="#000"/>
+          <rect x="11" y="11" width="1" height="1" fill="#000"/><rect x="13" y="11" width="3" height="1" fill="#000"/><rect x="17" y="11" width="1" height="1" fill="#000"/>
+          <rect x="20" y="11" width="1" height="1" fill="#000"/>
+          <rect x="0" y="12" width="2" height="1" fill="#000"/><rect x="5" y="12" width="1" height="1" fill="#000"/><rect x="8" y="12" width="2" height="1" fill="#000"/>
+          <rect x="12" y="12" width="1" height="1" fill="#000"/><rect x="15" y="12" width="2" height="1" fill="#000"/><rect x="19" y="12" width="1" height="1" fill="#000"/>
+          <rect x="8" y="13" width="3" height="1" fill="#000"/><rect x="13" y="13" width="2" height="1" fill="#000"/><rect x="17" y="13" width="2" height="1" fill="#000"/>
+          <rect x="8" y="14" width="1" height="1" fill="#000"/><rect x="10" y="14" width="2" height="1" fill="#000"/><rect x="14" y="14" width="1" height="1" fill="#000"/>
+          <rect x="16" y="14" width="1" height="1" fill="#000"/><rect x="20" y="14" width="1" height="1" fill="#000"/>
+          <rect x="9" y="15" width="2" height="1" fill="#000"/><rect x="12" y="15" width="3" height="1" fill="#000"/><rect x="17" y="15" width="3" height="1" fill="#000"/>
+          <rect x="8" y="16" width="1" height="1" fill="#000"/><rect x="11" y="16" width="1" height="1" fill="#000"/><rect x="13" y="16" width="1" height="1" fill="#000"/>
+          <rect x="15" y="16" width="2" height="1" fill="#000"/><rect x="19" y="16" width="2" height="1" fill="#000"/>
+          <rect x="10" y="17" width="1" height="1" fill="#000"/><rect x="12" y="17" width="2" height="1" fill="#000"/><rect x="16" y="17" width="1" height="1" fill="#000"/>
+          <rect x="18" y="17" width="1" height="1" fill="#000"/><rect x="20" y="17" width="1" height="1" fill="#000"/>
+          <rect x="8" y="18" width="2" height="1" fill="#000"/><rect x="11" y="18" width="3" height="1" fill="#000"/><rect x="15" y="18" width="1" height="1" fill="#000"/>
+          <rect x="17" y="18" width="2" height="1" fill="#000"/>
+          <rect x="9" y="19" width="1" height="1" fill="#000"/><rect x="13" y="19" width="1" height="1" fill="#000"/><rect x="16" y="19" width="3" height="1" fill="#000"/>
+          <rect x="20" y="19" width="1" height="1" fill="#000"/>
+          <rect x="8" y="20" width="3" height="1" fill="#000"/><rect x="12" y="20" width="2" height="1" fill="#000"/><rect x="15" y="20" width="1" height="1" fill="#000"/>
+          <rect x="18" y="20" width="1" height="1" fill="#000"/>
+        </svg>
+      </div>
+      <div>
+        <div class="store-label">App Store</div>
+        <div class="store-sub">iOS · id6762748392</div>
+      </div>
+    </a>
+
+    <!-- F-Droid -->
+    <a href="https://f-droid.org/packages/com.bitcoin.sharedhaven.testnet/" target="_blank" rel="noopener" class="download-card">
+      <div style="width:120px;height:120px;background:var(--bg-card2);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;font-size:2.5rem;">
+        🤖
+      </div>
+      <div>
+        <div class="store-label">F-Droid</div>
+        <div class="store-sub">Android · Open Source Store</div>
+      </div>
+    </a>
+
+  </div>
+
+  <p class="download-manual">
+    <span data-lang="it">📄 Leggi il manuale completo: </span>
+    <span data-lang="en">📄 Read the full manual: </span>
+    <span data-lang="es">📄 Lee el manual completo: </span>
+    <a href="SharedHaven_Manual_V4.pdf" target="_blank">SharedHaven Manual V4 (PDF)</a>
+    &nbsp;·&nbsp;
+    <a href="https://github.com/cortezhanny124/shared_haven" target="_blank">GitHub →</a>
+  </p>
+</div>
+</section>
+
+<!-- ══════════════════════════════════════ COMPARISON -->
+<section id="comparison" style="background:var(--bg-card);border-top:1px solid var(--border);">
+<div class="container">
+  <p class="section-label">
+    <span data-lang="it">Confronto con i competitor</span>
+    <span data-lang="en">Competitor comparison</span>
+    <span data-lang="es">Comparación con competidores</span>
+  </p>
+  <h2 class="section-title">
+    <span data-lang="it">SharedHaven vs Liana vs Nunchuk</span>
+    <span data-lang="en">SharedHaven vs Liana vs Nunchuk</span>
+    <span data-lang="es">SharedHaven vs Liana vs Nunchuk</span>
+  </h2>
+  <p class="section-body">
+    <span data-lang="it">Tutti e tre usano timelock e multisig on-chain. Le differenze stanno nella piattaforma, nella filosofia e nell'accessibilità.</span>
+    <span data-lang="en">All three use on-chain timelocks and multisig. Differences lie in platform, philosophy, and accessibility.</span>
+    <span data-lang="es">Los tres usan timelocks y multisig on-chain. Las diferencias están en la plataforma, filosofía y accesibilidad.</span>
+  </p>
+
+  <div class="comparison-table-wrap">
+  <table>
+    <thead>
+      <tr>
+        <th>
+          <span data-lang="it">Caratteristica</span>
+          <span data-lang="en">Feature</span>
+          <span data-lang="es">Característica</span>
+        </th>
+        <th class="highlight">SharedHaven</th>
+        <th>Liana <small style="font-weight:400;color:#555">(Wizardsardine)</small></th>
+        <th>Nunchuk</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>
+          <span data-lang="it">Piattaforma</span>
+          <span data-lang="en">Platform</span>
+          <span data-lang="es">Plataforma</span>
+        </td>
+        <td class="hl-orange">📱 iOS + Android + Desktop</td>
+        <td>🖥 Desktop only (Win/Mac/Linux)</td>
+        <td>📱 iOS + Android + Desktop</td>
+      </tr>
+      <tr>
+        <td>
+          <span data-lang="it">Spendibilità a tempo</span>
+          <span data-lang="en">time-lock safe</span>
+          <span data-lang="es">caja fuerte con temporizador</span>
+        </td>
+        <td class="hl"><span class="check">✓</span> OK </td>
+        <td><span class="check">✓</span> OK </td>
+        <td><span class="check">✓</span> OK </td>
+      </tr>
+      <tr>
+        <td>
+          <span data-lang="it">Conti multifirma</span>
+          <span data-lang="en">Shared multisig</span>
+          <span data-lang="es">Multifirma compartida</span>
+        </td>
+        <td class="hl"><span class="check">✓</span></td>
+        <td><span class="check">✓</span></td>
+        <td><span class="check">✓</span></td>
+      </tr>
+      <tr>
+        <td>
+          <span data-lang="it">Decaying multisig</span>
+          <span data-lang="en">Decaying multisig</span>
+          <span data-lang="es">Multifirma decreciente</span>
+        </td>
+        <td class="hl"><span class="check">✓</span>
+          <span data-lang="it">integrato e configurabile</span>
+          <span data-lang="en">built-in</span>
+          <span data-lang="es">integrado</span>
+        </td>
+        <td><span class="check">✓</span></td>
+        <td><span class="partial">~</span>
+          <span data-lang="it">piani premium</span>
+          <span data-lang="en">premium plans</span>
+          <span data-lang="es">planes premium</span>
+        </td>
+      </tr>
+      <tr>
+        <td>KYC</td>
+        <td class="hl-orange">
+          <span class="check">✓</span>
+          <span data-lang="it">Nessuno</span>
+          <span data-lang="en">None</span>
+          <span data-lang="es">Ninguno</span>
+        </td>
+        <td>
+          <span class="check">✓</span>
+          <span data-lang="it">Nessuno</span>
+          <span data-lang="en">None</span>
+          <span data-lang="es">Ninguno</span>
+        </td>
+        <td>
+          <span class="check">✓</span>
+          <span data-lang="it">Nessuno</span>
+          <span data-lang="en">None</span>
+          <span data-lang="es">Ninguno</span>
+        </td>
+      </tr>
+      <tr>
+        <td>
+          <span data-lang="it">Custodia chiavi</span>
+          <span data-lang="en">Key custody</span>
+          <span data-lang="es">Custodia de claves</span>
+        </td>
+        <td class="hl-orange">
+          <span data-lang="it">Self-custody totale</span>
+          <span data-lang="en">Full self-custody</span>
+          <span data-lang="es">Auto-custodia total</span>
+        </td>
+        <td>
+          <span data-lang="it">Self-custody + Safety Net opzionale</span>
+          <span data-lang="en">Self-custody + optional Safety Net</span>
+          <span data-lang="es">Auto-custodia + Safety Net opcional</span>
+        </td>
+        <td>
+          <span data-lang="it">Self-custody + chiave custodia Nunchuk</span>
+          <span data-lang="en">Self-custody + Nunchuk custody key</span>
+          <span data-lang="es">Auto-custodia + clave custodia Nunchuk</span>
+        </td>
+      </tr>
+      <tr>
+        <td>
+          <span data-lang="it">Costo</span>
+          <span data-lang="en">Cost</span>
+          <span data-lang="es">Costo</span>
+        </td>
+        <td class="hl-orange">
+          <span data-lang="it">Gratuito</span>
+          <span data-lang="en">Free</span>
+          <span data-lang="es">Gratis</span>
+        </td>
+        <td>
+          <span data-lang="it">Gratuito (Safety Net a pagamento)</span>
+          <span data-lang="en">Free (Safety Net paid)</span>
+          <span data-lang="es">Gratis (Safety Net de pago)</span>
+        </td>
+        <td>
+          <span data-lang="it">Base gratis, eredità a pagamento</span>
+          <span data-lang="en">Base free, inheritance paid</span>
+          <span data-lang="es">Base gratis, herencia de pago</span>
+        </td>
+      </tr>
+      <tr>
+        <td>
+          <span data-lang="it">Hardware wallet</span>
+          <span data-lang="en">Hardware wallet</span>
+          <span data-lang="es">Hardware wallet</span>
+        </td>
+        <td class="hl"><span class="cross">–</span>
+          <span data-lang="it">software wallet</span>
+          <span data-lang="en">software wallet</span>
+          <span data-lang="es">billetera software</span>
+        </td>
+        <td><span class="check">✓</span> BitBox02, Ledger, Coldcard…</td>
+        <td><span class="check">✓</span>
+          <span data-lang="it">ampio supporto</span>
+          <span data-lang="en">broad support</span>
+          <span data-lang="es">amplio soporte</span>
+        </td>
+      </tr>
+      <tr>
+        <td>
+          <span data-lang="it">Open source</span>
+          <span data-lang="en">Open source</span>
+          <span data-lang="es">Código abierto</span>
+        </td>
+        <td class="hl"><span class="check">✓</span> GPL-3.0</td>
+        <td><span class="check">✓</span> MIT</td>
+        <td><span class="check">✓</span></td>
+      </tr>
+      <tr>
+        <td>
+          <span data-lang="it">Testnet integrato</span>
+          <span data-lang="en">Built-in testnet</span>
+          <span data-lang="es">Testnet integrado</span>
+        </td>
+        <td class="hl-orange"><span class="check">✓</span></td>
+        <td><span class="check">✓</span></td>
+        <td><span class="partial">~</span></td>
+      </tr>
+      <tr>
+        <td>PSBT co-signing</td>
+        <td class="hl"><span class="check">✓</span></td>
+        <td><span class="check">✓</span></td>
+        <td><span class="check">✓</span></td>
+      </tr>
+    </tbody>
+  </table>
+  </div>
+</div>
+</section>
+
+<!-- ══════════════════════════════════════ OPEN SOURCE -->
+<section id="opensource">
+<div class="container">
+  <p class="section-label">
+    <span data-lang="it">Codice aperto</span>
+    <span data-lang="en">Open source</span>
+    <span data-lang="es">Código abierto</span>
+  </p>
+  <h2 class="section-title">
+    <span data-lang="it">Verifica tu stesso</span>
+    <span data-lang="en">Verify it yourself</span>
+    <span data-lang="es">Verifícalo tú mismo</span>
+  </h2>
+  <p class="section-body">
+    <span data-lang="it">SharedHaven è software libero sotto licenza GPL-3.0. Non devi fidarti di noi — leggi il codice, compilalo tu, o contribuisci.</span>
+    <span data-lang="en">SharedHaven is free software under GPL-3.0. You don't need to trust us — read the code, build it yourself, or contribute.</span>
+    <span data-lang="es">SharedHaven es software libre bajo GPL-3.0. No tienes que confiar en nosotros — lee el código, compílalo tú mismo, o contribuye.</span>
+  </p>
+
+  <div class="oss-grid">
+    <div class="oss-card">
+      <div class="oss-card-title">
+        <span data-lang="it">Repository GitHub</span>
+        <span data-lang="en">GitHub Repository</span>
+        <span data-lang="es">Repositorio GitHub</span>
+      </div>
+      <p class="oss-card-text">
+        <span data-lang="it">Tutto il codice sorgente è pubblico. Architettura Clean Architecture in Flutter/Dart, con layer separati per presentazione, dominio e dati.</span>
+        <span data-lang="en">All source code is public. Clean Architecture in Flutter/Dart with separate layers for presentation, domain, and data.</span>
+        <span data-lang="es">Todo el código fuente es público. Arquitectura limpia en Flutter/Dart con capas separadas para presentación, dominio y datos.</span>
+      </p>
+      <div class="code-badge">
+        <a href="https://github.com/cortezhanny124/shared_haven" target="_blank">
+          github.com/cortezhanny124/shared_haven ↗
+        </a>
+      </div>
+      <div class="lang-bar-list">
+        <span class="lang-pill"><span>29.9%</span> Dart</span>
+        <span class="lang-pill"><span>28.1%</span> C++</span>
+        <span class="lang-pill"><span>27.5%</span> C</span>
+        <span class="lang-pill"><span>14.3%</span> CMake</span>
+      </div>
+    </div>
+
+    <div class="oss-card">
+      <div class="oss-card-title">
+        <span data-lang="it">Compilalo da solo</span>
+        <span data-lang="en">Build it yourself</span>
+        <span data-lang="es">Compílalo tú mismo</span>
+      </div>
+      <p class="oss-card-text">
+        <span data-lang="it">Hai bisogno di Flutter SDK (≥ v2.10). Tre comandi e l'app gira sul tuo telefono.</span>
+        <span data-lang="en">You need Flutter SDK (≥ v2.10). Three commands and the app runs on your phone.</span>
+        <span data-lang="es">Necesitas Flutter SDK (≥ v2.10). Tres comandos y la app corre en tu teléfono.</span>
+      </p>
+      <div class="code-badge" style="display:block;font-size:0.7rem;line-height:2;margin-top:16px;">
+        <div style="color:#555"># Clone & run</div>
+        <div>git clone <span style="color:var(--orange)">github.com/cortezhanny124/shared_haven</span></div>
+        <div>flutter pub get</div>
+        <div>flutter run</div>
+      </div>
+    </div>
+
+    <div class="oss-card">
+      <div class="oss-card-title">
+        <span data-lang="it">Licenza GPL-3.0</span>
+        <span data-lang="en">GPL-3.0 License</span>
+        <span data-lang="es">Licencia GPL-3.0</span>
+      </div>
+      <p class="oss-card-text">
+        <span data-lang="it">Il software è libero: puoi usarlo, modificarlo e distribuirlo. Qualsiasi versione derivata deve rimanere open source con la stessa licenza.</span>
+        <span data-lang="en">The software is free: you can use it, modify it, and distribute it. Any derived version must remain open source under the same license.</span>
+        <span data-lang="es">El software es libre: puedes usarlo, modificarlo y distribuirlo. Cualquier versión derivada debe permanecer de código abierto con la misma licencia.</span>
+      </p>
+      <span class="feature-tag">GNU GPLv3</span>
+    </div>
+
+    <div class="oss-card">
+      <div class="oss-card-title">F-Droid</div>
+      <p class="oss-card-text">
+        <span data-lang="it">Disponibile anche su F-Droid — lo store Android 100% open source. Nessun account Google richiesto, nessun tracciamento proprietario.</span>
+        <span data-lang="en">Also available on F-Droid — the 100% open source Android store. No Google account required, no proprietary tracking.</span>
+        <span data-lang="es">También disponible en F-Droid — la tienda Android 100% de código abierto. Sin cuenta de Google, sin rastreo propietario.</span>
+      </p>
+      <div class="code-badge">
+        <a href="https://f-droid.org/packages/com.bitcoin.sharedhaven.testnet/" target="_blank">
+          f-droid.org/packages/com.bitcoin.sharedhaven.testnet ↗
+        </a>
+      </div>
+    </div>
+  </div>
+</div>
+</section>
+
+<!-- ══════════════════════════════════════ TEAM -->
+<section id="team" class="team-section">
+<div class="container">
+  <p class="section-label">
+    <span data-lang="it">Chi siamo</span>
+    <span data-lang="en">Who we are</span>
+    <span data-lang="es">Quiénes somos</span>
+  </p>
+  <h2 class="section-title">
+    <span data-lang="it">Il Team</span>
+    <span data-lang="en">The Team</span>
+    <span data-lang="es">El Equipo</span>
+  </h2>
+  <p class="section-body">
+    <span data-lang="it">Un progetto nato dalla passione per Bitcoin e per la sovranità finanziaria individuale — costruito da sviluppatori indipendenti con il supporto di una struttura legale americana.</span>
+    <span data-lang="en">A project born from passion for Bitcoin and individual financial sovereignty — built by independent developers with the support of a US legal structure.</span>
+    <span data-lang="es">Un proyecto nacido de la pasión por Bitcoin y la soberanía financiera individual — construido por desarrolladores independientes con el apoyo de una estructura legal estadounidense.</span>
+  </p>
+
+  <div class="team-grid">
+
+    <div class="team-card">
+      <div class="team-avatar">H</div>
+      <div class="team-name">Hanny Cortez <span class="team-flag">🇻🇪</span></div>
+      <div class="team-role">
+        <span data-lang="it">Sviluppatore principale · Fondatore</span>
+        <span data-lang="en">Lead Developer · Founder</span>
+        <span data-lang="es">Desarrollador principal · Fundador</span>
+      </div>
+      <p class="team-bio">
+        <span data-lang="it">Sviluppatore venezuelano, autore di SharedHaven. Ha costruito l'intera app in Flutter/Dart con architettura Clean Architecture. Appassionato di Bitcoin, self-custody e libertà finanziaria. Il suo obiettivo: rendere gli strumenti avanzati di Bitcoin accessibili a chiunque, in tutto il mondo.</span>
+        <span data-lang="en">Venezuelan developer, author of SharedHaven. Built the entire app in Flutter/Dart with Clean Architecture. Passionate about Bitcoin, self-custody, and financial freedom. His goal: make advanced Bitcoin tools accessible to everyone, worldwide.</span>
+        <span data-lang="es">Desarrollador venezolano, autor de SharedHaven. Construyó toda la app en Flutter/Dart con arquitectura limpia. Apasionado por Bitcoin, auto-custodia y libertad financiera. Su objetivo: hacer las herramientas avanzadas de Bitcoin accesibles para todos, en todo el mundo.</span>
+      </p>
+      <span class="team-badge">GitHub: cortezhanny124</span>
+    </div>
+
+    <div class="team-card">
+      <div class="team-avatar" style="font-size:1rem;">MI</div>
+      <div class="team-name">Maring International LLC</div>
+      <div class="team-role">
+        <span data-lang="it">Entità legale · Delaware, USA 🇺🇸</span>
+        <span data-lang="en">Legal entity · Delaware, USA 🇺🇸</span>
+        <span data-lang="es">Entidad legal · Delaware, EE.UU. 🇺🇸</span>
+      </div>
+      <p class="team-bio">
+        <span data-lang="it">Società a responsabilità limitata registrata nello Stato del Delaware (USA) — una delle giurisdizioni più rispettate per le aziende tech internazionali. Fornisce la struttura legale e operativa a supporto dello sviluppo di SharedHaven, garantendo trasparenza e compliance per gli utenti globali.</span>
+        <span data-lang="en">Limited Liability Company registered in the State of Delaware (USA) — one of the most respected jurisdictions for international tech companies. Provides the legal and operational structure supporting SharedHaven's development, ensuring transparency and compliance for global users.</span>
+        <span data-lang="es">Sociedad de responsabilidad limitada registrada en el Estado de Delaware (EE.UU.) — una de las jurisdicciones más respetadas para empresas tecnológicas internacionales. Proporciona la estructura legal y operativa que respalda el desarrollo de SharedHaven, garantizando transparencia y cumplimiento para usuarios globales.</span>
+      </p>
+      <span class="team-badge">Delaware LLC · USA</span>
+    </div>
+
+  </div>
+
+  <!-- Philosophy -->
+  <div style="margin-top:48px; background:var(--bg); border:1px solid var(--border); padding:36px 32px; max-width:700px;">
+    <div class="callout-title">
+      <span data-lang="it">"Non fidarti. Verifica."</span>
+      <span data-lang="en">"Don't trust. Verify."</span>
+      <span data-lang="es">"No confíes. Verifica."</span>
+    </div>
+    <p class="callout-text">
+      <span data-lang="it">SharedHaven nasce dalla consapevolezza che la vera libertà finanziaria non dipende da nessun intermediario. Dalla crisi del Venezuela alla costruzione di strumenti di auto-custodia Bitcoin — questo progetto è personale prima che commerciale.</span>
+      <span data-lang="en">SharedHaven was born from the awareness that true financial freedom doesn't depend on any intermediary. From Venezuela's crisis to building Bitcoin self-custody tools — this project is personal before it's commercial.</span>
+      <span data-lang="es">SharedHaven nació de la conciencia de que la verdad libertad financiera no depende de ningún intermediario. Desde la crisis de Venezuela hasta la construcción de herramientas de auto-custodia Bitcoin — este proyecto es personal antes que comercial.</span>
+    </p>
+  </div>
+
+</div>
+</section>
+
+<!-- ══════════════════════════════════════ FAQ -->
+<section id="faq">
+<div class="container">
+  <p class="section-label">
+    <span data-lang="it">Domande frequenti</span>
+    <span data-lang="en">Frequently asked questions</span>
+    <span data-lang="es">Preguntas frecuentes</span>
+  </p>
+  <h2 class="section-title">FAQ</h2>
+
+  <div class="faq-list">
+
+    <div class="faq-item">
+      <div class="faq-q" onclick="toggleFaq(this)">
+        <span data-lang="it">SharedHaven custodisce le mie chiavi o i miei Bitcoin?</span>
+        <span data-lang="en">Does SharedHaven hold my keys or Bitcoin?</span>
+        <span data-lang="es">¿SharedHaven custodia mis claves o mis Bitcoin?</span>
+        <span class="faq-icon">+</span>
+      </div>
+      <div class="faq-a">
+        <span data-lang="it">No. SharedHaven è un wallet non-custodial: le tue chiavi private rimangono solo sul tuo dispositivo (nel tuo mnemonico di 12 parole). Noi non vediamo né i tuoi fondi né le tue chiavi.</span>
+        <span data-lang="en">No. SharedHaven is a non-custodial wallet: your private keys remain only on your device (in your 12-word mnemonic). We don't see your funds or keys.</span>
+        <span data-lang="es">No. SharedHaven es una billetera no-custodial: tus claves privadas permanecen solo en tu dispositivo (en tu mnemónico de 12 palabras). No vemos tus fondos ni tus claves.</span>
+      </div>
+    </div>
+
+    <div class="faq-item">
+      <div class="faq-q" onclick="toggleFaq(this)">
+        <span data-lang="it">Cosa succede se perdo il telefono?</span>
+        <span data-lang="en">What happens if I lose my phone?</span>
+        <span data-lang="es">¿Qué pasa si pierdo el teléfono?</span>
+        <span class="faq-icon">+</span>
+      </div>
+      <div class="faq-a">
+        <span data-lang="it">Per il portafoglio personale basta il tuo mnemonico di 12 parole per ripristinare tutto. Per i portafogli condivisi hai bisogno sia del mnemonico che del file descriptor condiviso. Conserva entrambi in posti sicuri e separati.</span>
+        <span data-lang="en">For your personal wallet, your 12-word mnemonic is enough to restore everything. For shared wallets you need both the mnemonic and the shared descriptor file. Keep both in safe, separate places.</span>
+        <span data-lang="es">Para tu billetera personal, tu mnemónico de 12 palabras es suficiente para restaurar todo. Para billeteras compartidas necesitas tanto el mnemónico como el archivo descriptor compartido. Guarda ambos en lugares seguros y separados.</span>
+      </div>
+    </div>
+
+    <div class="faq-item">
+      <div class="faq-q" onclick="toggleFaq(this)">
+        <span data-lang="it">Cosa sono i timelock e come funzionano?</span>
+        <span data-lang="en">What are timelocks and how do they work?</span>
+        <span data-lang="es">¿Qué son los timelocks y cómo funcionan?</span>
+        <span class="faq-icon">+</span>
+      </div>
+      <div class="faq-a">
+        <span data-lang="it">I timelock sono condizioni codificate nello script Bitcoin che rendono certi fondi spendibili solo dopo un certo numero di blocchi. Un anno equivale a circa 52.560 blocchi. Non c'è nessun server di terze parti: è la rete Bitcoin a far rispettare le regole.</span>
+        <span data-lang="en">Timelocks are conditions coded into the Bitcoin script that make certain funds spendable only after a certain number of blocks. One year equals about 52,560 blocks. There's no third-party server: the Bitcoin network itself enforces the rules.</span>
+        <span data-lang="es">Los timelocks son condiciones codificadas en el script Bitcoin que hacen que ciertos fondos solo sean gastables después de cierto número de bloques. Un año equivale a aproximadamente 52.560 bloques. No hay servidor de terceros: es la red Bitcoin la que hace cumplir las reglas.</span>
+      </div>
+    </div>
+
+    <div class="faq-item">
+      <div class="faq-q" onclick="toggleFaq(this)">
+        <span data-lang="it">Devo aggiornare periodicamente il timelock?</span>
+        <span data-lang="en">Do I need to periodically update the timelock?</span>
+        <span data-lang="es">¿Necesito actualizar periódicamente el timelock?</span>
+        <span class="faq-icon">+</span>
+      </div>
+      <div class="faq-a">
+        <span data-lang="it">Sì, se vuoi che gli eredi non possano mai accedere ai fondi finché sei in vita: basta spostare i fondi ogni X mesi (il timer si azzera ad ogni transazione). Se invece sei inattivo per il periodo stabilito, il timelock si sblocca.</span>
+        <span data-lang="en">Yes, if you want heirs to never access funds while you're alive: just move the funds every X months (the timer resets with each transaction). If you're inactive for the set period, the timelock unlocks.</span>
+        <span data-lang="es">Sí, si quieres que los herederos nunca accedan a los fondos mientras vives: simplemente mueve los fondos cada X meses (el temporizador se reinicia con cada transacción). Si estás inactivo durante el período establecido, el timelock se desbloquea.</span>
+      </div>
+    </div>
+
+    <div class="faq-item">
+      <div class="faq-q" onclick="toggleFaq(this)">
+        <span data-lang="it">Posso usare SharedHaven senza usare Bitcoin "reale"?</span>
+        <span data-lang="en">Can I use SharedHaven without using "real" Bitcoin?</span>
+        <span data-lang="es">¿Puedo usar SharedHaven sin usar Bitcoin "real"?</span>
+        <span class="faq-icon">+</span>
+      </div>
+      <div class="faq-a">
+        <span data-lang="it">Sì. L'app ha una modalità testnet: lo schermo diventa verde. Puoi sperimentare tutte le funzionalità (inclusi portafogli condivisi e timelock) con Bitcoin di prova senza valore reale.</span>
+        <span data-lang="en">Yes. The app has a testnet mode: the screen turns green. You can experiment with all features (including shared wallets and timelocks) with test Bitcoin with no real value.</span>
+        <span data-lang="es">Sí. La app tiene un modo testnet: la pantalla se vuelve verde. Puedes experimentar con todas las funciones (incluidas billeteras compartidas y timelocks) con Bitcoin de prueba sin valor real.</span>
+      </div>
+    </div>
+
+    <div class="faq-item">
+      <div class="faq-q" onclick="toggleFaq(this)">
+        <span data-lang="it">Quanto costa l'app?</span>
+        <span data-lang="en">How much does the app cost?</span>
+        <span data-lang="es">¿Cuánto cuesta la app?</span>
+        <span class="faq-icon">+</span>
+      </div>
+      <div class="faq-a">
+        <span data-lang="it">Completamente gratuita. Sempre. Nessun abbonamento, nessuna funzionalità a pagamento, nessuna pubblicità. È software libero e lo resterà.</span>
+        <span data-lang="en">Completely free. Always. No subscriptions, no paid features, no advertising. It's free software and will remain so.</span>
+        <span data-lang="es">Completamente gratis. Siempre. Sin suscripciones, sin funciones de pago, sin publicidad. Es software libre y lo seguirá siendo.</span>
+      </div>
+    </div>
+
+  </div>
+</div>
+</section>
+
+<!-- ══════════════════════════════════════ FOOTER -->
+<footer>
+  <div class="footer-logo">⬡ SharedHaven</div>
+  <p style="font-size:0.8rem;color:var(--text-dim);font-family:'Crimson Pro',serif;font-style:italic;margin-bottom:8px;">
+    <span data-lang="it">"Sii la tua banca."</span>
+    <span data-lang="en">"Be your own bank."</span>
+    <span data-lang="es">"Sé tu propio banco."</span>
+  </p>
+  <div class="footer-links">
+    <a href="https://play.google.com/store/apps/details?id=org.sharedhaven.app" target="_blank">Google Play</a>
+    <a href="https://apps.apple.com/it/app/sharedhaven/id6762748392" target="_blank">App Store</a>
+    <a href="https://f-droid.org/packages/com.bitcoin.sharedhaven.testnet/" target="_blank">F-Droid</a>
+    <a href="https://github.com/cortezhanny124/shared_haven" target="_blank">GitHub</a>
+    <a href="SharedHaven_Manual_V4.pdf" target="_blank">
+      <span data-lang="it">Manuale PDF</span>
+      <span data-lang="en">PDF Manual</span>
+      <span data-lang="es">Manual PDF</span>
+    </a>
+  </div>
+  <p class="footer-copy">© 2025–2026 Maring International LLC · Delaware, USA</p>
+  <p class="footer-license">SharedHaven is free software: GPL-3.0 · Built with Flutter by Hanny Cortez</p>
+</footer>
+
+<script>
+// Language switcher
+function setLang(lang, btn) {
+  document.body.className = 'lang-' + lang;
+  document.querySelectorAll('.lang-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  document.documentElement.lang = lang;
+}
+
+// FAQ accordion
+function toggleFaq(el) {
+  const item = el.parentElement;
+  const isOpen = item.classList.contains('open');
+  document.querySelectorAll('.faq-item.open').forEach(i => i.classList.remove('open'));
+  if (!isOpen) item.classList.add('open');
+}
+
+// Scroll reveal
+const observer = new IntersectionObserver((entries) => {
+  entries.forEach(e => {
+    if (e.isIntersecting) {
+      e.target.style.opacity = '1';
+      e.target.style.transform = 'translateY(0)';
+    }
+  });
+}, { threshold: 0.1 });
+
+document.querySelectorAll('.feature-card, .team-card, .oss-card, .timeline-item, .download-card').forEach(el => {
+  el.style.opacity = '0';
+  el.style.transform = 'translateY(20px)';
+  el.style.transition = 'opacity 0.5s ease, transform 0.5s ease';
+  observer.observe(el);
+});
+</script>
+</body>
+</html>
